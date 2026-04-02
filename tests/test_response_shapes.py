@@ -79,6 +79,9 @@ class TestResponseShapes:
             result = json.loads(result_json)
 
             assert "ip" in result
+            assert "geo" in result
+            assert "network" in result
+            assert "flags" in result
             assert isinstance(result, dict)
 
     @pytest.mark.asyncio
@@ -155,13 +158,13 @@ class TestResponseShapes:
             result = json.loads(result_json)
 
             assert isinstance(result, list)
-            if len(result) > 0:
-                item = result[0]
-                assert "user" in item
-                assert "handle" in item
-                assert "text" in item
-                assert "score" in item
-                assert "created_at" in item
+            assert len(result) == 1
+            item = result[0]
+            assert "user" in item
+            assert "handle" in item
+            assert "text" in item
+            assert "score" in item
+            assert "created_at" in item
 
     @pytest.mark.asyncio
     async def test_cosharing_clusters_response_shape(self) -> None:
@@ -211,8 +214,12 @@ class TestResponseShapes:
 
             mock_parsed = MagicMock()
             mock_parsed_dict = {
-                "domain": "example.com",
                 "registrar": "Example Registrar",
+                "creation_date": "2020-01-01T00:00:00Z",
+                "expiration_date": "2025-01-01T00:00:00Z",
+                "nameservers": ["ns1.example.com", "ns2.example.com"],
+                "domain_age": 1826,
+                "raw_text": "some whois text",
             }
             mock_parse.return_value = mock_parsed
 
@@ -222,4 +229,9 @@ class TestResponseShapes:
                 result = json.loads(result_json)
 
                 assert isinstance(result, dict)
-                assert len(result) > 0
+                assert "registrar" in result
+                assert "creation_date" in result
+                assert "expiration_date" in result
+                assert "nameservers" in result
+                assert "domain_age" in result
+                assert "raw_text" in result
