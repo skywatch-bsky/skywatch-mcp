@@ -10,6 +10,9 @@ import httpx
 from skywatch_mcp.config import OzoneSettings
 from skywatch_mcp.server import mcp
 
+# _settings is created at import time to capture environment variables at load time.
+# Environment variables are typically static for the lifetime of the process.
+# Tests reload this module when env vars change, which is the accepted pattern.
 _settings = OzoneSettings()
 
 # Session cache at module level

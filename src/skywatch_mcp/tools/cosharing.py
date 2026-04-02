@@ -15,6 +15,16 @@ def _sanitize_cluster_id(cluster_id: str) -> str:
     return re.sub(r"[^a-z0-9-]", "", cluster_id)
 
 
+def _sanitize_date(date: str) -> str:
+    """Validate and return date in YYYY-MM-DD format.
+
+    Raises ValueError if the date does not match the expected format.
+    """
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        raise ValueError(f"Invalid date format. Expected YYYY-MM-DD, got: {date}")
+    return date
+
+
 def _build_clusters_query(
     did: str | None = None,
     cluster_id: str | None = None,
@@ -24,7 +34,7 @@ def _build_clusters_query(
 ) -> str:
     if did:
         safe_did = _sanitize_did(did)
-        date_filter = f"AND m.run_date = '{date}'" if date else "AND m.run_date = yesterday()"
+        date_filter = f"AND m.run_date = '{_sanitize_date(date)}'" if date else "AND m.run_date = yesterday()"
         return f"""SELECT m.cluster_id, m.run_date, c.member_count, c.total_edges,
        c.total_weight, c.unique_urls, c.temporal_spread_hours,
        c.mean_posting_interval_seconds, c.evolution_type,
@@ -39,7 +49,7 @@ LIMIT {limit}"""
 
     if cluster_id:
         safe_id = _sanitize_cluster_id(cluster_id)
-        date_filter = f"AND run_date = '{date}'" if date else ""
+        date_filter = f"AND run_date = '{_sanitize_date(date)}'" if date else ""
         return f"""SELECT cluster_id, run_date, member_count, total_edges,
        total_weight, unique_urls, temporal_spread_hours,
        mean_posting_interval_seconds, evolution_type,
@@ -50,8 +60,8 @@ WHERE cluster_id = '{safe_id}' {date_filter}
 ORDER BY run_date DESC
 LIMIT {limit}"""
 
-    date_filter = f"run_date = '{date}'" if date else "run_date = yesterday()"
-    member_filter = f"AND member_count >= {min_members}" if min_members else ""
+    date_filter = f"run_date = '{_sanitize_date(date)}'" if date else "run_date = yesterday()"
+    member_filter = f"AND member_count >= {int(min_members)}" if min_members else ""
     return f"""SELECT cluster_id, run_date, member_count, total_edges,
        total_weight, unique_urls, temporal_spread_hours,
        mean_posting_interval_seconds, evolution_type,
@@ -70,7 +80,7 @@ def _build_pairs_query(
     limit: int = 50,
 ) -> str:
     safe_did = _sanitize_did(did)
-    date_filter = f"AND date = '{date}'" if date else "AND date = yesterday()"
+    date_filter = f"AND date = '{_sanitize_date(date)}'" if date else "AND date = yesterday()"
     weight_filter = f"AND weight >= {min_weight}" if min_weight else ""
 
     return f"""SELECT date, account_a, account_b, weight, shared_urls

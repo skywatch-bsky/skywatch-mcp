@@ -26,9 +26,11 @@ Expose AT Protocol investigation and moderation capabilities as MCP tools. Each 
 - Tool registration via import side-effects: keeps server.py minimal, tools self-contained
 - `query()` vs `query_trusted()`: user-supplied SQL is validated; internal SQL (cosharing, content) uses trusted path with longer timeout
 - Ozone session management: module-level cache with automatic refresh on ExpiredToken
-- Cosharing queries use manual DID/cluster_id sanitization (regex allowlist) instead of parameterized queries
+- Cosharing queries use manual DID/cluster_id/date sanitization (regex allowlist) instead of parameterized queries
+- Cosharing min_members explicitly cast to int for defense-in-depth validation
 
 ## Invariants
 - clickhouse_query only permits SELECT/WITH statements with a LIMIT clause
 - Ozone tools validate configuration before any API call
 - AT-URI subjects require a CID parameter; DID subjects do not
+- Cosharing date parameters must be YYYY-MM-DD format (validated at query-build time)
