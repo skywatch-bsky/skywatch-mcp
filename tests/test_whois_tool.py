@@ -1,9 +1,8 @@
 # pattern: Imperative Shell
 
-import asyncio
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 
 @pytest.fixture
@@ -138,7 +137,9 @@ Name Server: NS.INCOMPLETE.COM
         assert data["raw_text"] is not None
 
     @pytest.mark.asyncio
-    async def test_whois_lookup_handles_whois_object_without_text_attribute(self, mock_whois_module):
+    async def test_whois_lookup_handles_whois_object_without_text_attribute(
+        self, mock_whois_module
+    ):
         """whois_lookup should handle whois objects without .text attribute"""
         whois_response_str = """
 Domain Name: NOTEXT.COM

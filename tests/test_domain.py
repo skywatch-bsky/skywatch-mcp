@@ -28,7 +28,9 @@ class TestDomainCheck:
     """Test domain_check tool verifies all 7 DNS record types (AC1.3) and uses async resolver (AC3.2)"""
 
     @pytest.mark.asyncio
-    async def test_domain_check_resolves_all_record_types(self, mock_dns_resolver, mock_http_client):
+    async def test_domain_check_resolves_all_record_types(
+        self, mock_dns_resolver, mock_http_client
+    ):
         """domain_check should resolve A, AAAA, NS, MX, TXT, CNAME, SOA records"""
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client
@@ -102,7 +104,9 @@ class TestDomainCheck:
         assert data["records"]["soa"]["serial"] == 2024010101
 
     @pytest.mark.asyncio
-    async def test_domain_check_resolves_false_when_no_a_records(self, mock_dns_resolver, mock_http_client):
+    async def test_domain_check_resolves_false_when_no_a_records(
+        self, mock_dns_resolver, mock_http_client
+    ):
         """domain_check should return resolves=false when no A or AAAA records"""
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client
@@ -164,7 +168,9 @@ class TestDomainCheck:
         assert data["http"]["statusText"] == "OK"
 
     @pytest.mark.asyncio
-    async def test_domain_check_http_status_none_on_error(self, mock_dns_resolver, mock_http_client):
+    async def test_domain_check_http_status_none_on_error(
+        self, mock_dns_resolver, mock_http_client
+    ):
         """domain_check should set http=None if HTTP check fails"""
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client
@@ -223,7 +229,9 @@ class TestDomainCheck:
         assert mock_resolver.resolve.call_count == 7
 
     @pytest.mark.asyncio
-    async def test_domain_check_handles_dns_resolution_exception(self, mock_dns_resolver, mock_http_client):
+    async def test_domain_check_handles_dns_resolution_exception(
+        self, mock_dns_resolver, mock_http_client
+    ):
         """domain_check should handle DNS resolution errors gracefully"""
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client
@@ -237,7 +245,9 @@ class TestDomainCheck:
             await domain_check("example.com")
 
     @pytest.mark.asyncio
-    async def test_domain_check_empty_results_handled_correctly(self, mock_dns_resolver, mock_http_client):
+    async def test_domain_check_empty_results_handled_correctly(
+        self, mock_dns_resolver, mock_http_client
+    ):
         """domain_check should handle empty DNS results for missing record types"""
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client

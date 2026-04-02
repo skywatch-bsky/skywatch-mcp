@@ -31,12 +31,14 @@ async def _follow_redirects(start_url: str, max_hops: int = 15) -> dict:
                     except Exception:
                         next_url = None
 
-                hops.append({
-                    "url": current_url,
-                    "statusCode": response.status_code,
-                    "location": next_url,
-                    "isShortener": shortener,
-                })
+                hops.append(
+                    {
+                        "url": current_url,
+                        "statusCode": response.status_code,
+                        "location": next_url,
+                        "isShortener": shortener,
+                    }
+                )
 
                 if not next_url or response.status_code < 300 or response.status_code >= 400:
                     final_url = current_url
@@ -48,12 +50,14 @@ async def _follow_redirects(start_url: str, max_hops: int = 15) -> dict:
             except Exception:
                 hostname = urlparse(current_url).hostname or ""
                 shortener = is_known_shortener(hostname)
-                hops.append({
-                    "url": current_url,
-                    "statusCode": 0,
-                    "location": None,
-                    "isShortener": shortener,
-                })
+                hops.append(
+                    {
+                        "url": current_url,
+                        "statusCode": 0,
+                        "location": None,
+                        "isShortener": shortener,
+                    }
+                )
                 break
 
     result = {

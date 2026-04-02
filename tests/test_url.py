@@ -111,7 +111,7 @@ class TestURLExpand:
         for i in range(15):
             response = MagicMock()
             response.status_code = 301
-            response.headers = {"location": f"https://example.com/hop{i+1}"}
+            response.headers = {"location": f"https://example.com/hop{i + 1}"}
             responses.append(response)
 
         mock_client.head.side_effect = responses
