@@ -235,3 +235,35 @@ class TestResponseShapes:
                 assert "nameservers" in result
                 assert "domain_age" in result
                 assert "raw_text" in result
+
+
+class TestInputValidation:
+    """Test that FastMCP validates input types and required fields."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_input_type_rejected_before_handler(self) -> None:
+        """Test AC2.2: FastMCP rejects invalid input types before handler execution."""
+        from skywatch_mcp.server import mcp
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        # domain_check expects domain as a string, not an int
+        with pytest.raises(ToolError) as exc_info:
+            await mcp.call_tool("domain_check", {"domain": 123})
+
+        # Verify the error is about type validation, not from handler execution
+        error_message = str(exc_info.value)
+        assert "Input should be a valid string" in error_message or "type=string_type" in error_message
+
+    @pytest.mark.asyncio
+    async def test_missing_required_field_rejected_with_clear_error(self) -> None:
+        """Test AC2.3: FastMCP rejects missing required fields with clear error message."""
+        from skywatch_mcp.server import mcp
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        # domain_check requires domain parameter
+        with pytest.raises(ToolError) as exc_info:
+            await mcp.call_tool("domain_check", {})
+
+        # Verify the error message is clear about the missing field
+        error_message = str(exc_info.value)
+        assert "Field required" in error_message or "missing" in error_message.lower()

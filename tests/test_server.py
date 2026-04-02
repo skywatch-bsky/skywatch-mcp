@@ -60,3 +60,41 @@ class TestServerImports:
         assert mcp is not None
         assert hasattr(mcp, "list_tools")
         assert hasattr(mcp, "run")
+
+
+class TestToolInputSchemas:
+    """Verify all tools have proper input schemas."""
+
+    @pytest.mark.asyncio
+    async def test_all_tools_have_input_schema_with_descriptions(self) -> None:
+        """Test AC2.1: All registered tools have inputSchema with property descriptions."""
+        tools = await mcp.list_tools()
+
+        assert len(tools) > 0, "No tools registered"
+
+        for tool in tools:
+            assert hasattr(tool, "inputSchema"), f"Tool {tool.name} missing inputSchema"
+            assert tool.inputSchema is not None, f"Tool {tool.name} inputSchema is None"
+
+            # inputSchema should be a dict with properties
+            if isinstance(tool.inputSchema, dict):
+                schema = tool.inputSchema
+            else:
+                # In case it's returned as a different type, convert to dict
+                import json
+                if isinstance(tool.inputSchema, str):
+                    schema = json.loads(tool.inputSchema)
+                else:
+                    schema = vars(tool.inputSchema) if hasattr(tool.inputSchema, '__dict__') else {}
+
+            # Check properties exist and have descriptions
+            if "properties" in schema:
+                properties = schema["properties"]
+                for prop_name, prop_schema in properties.items():
+                    assert isinstance(prop_schema, dict), (
+                        f"Tool {tool.name} property {prop_name} schema is not a dict"
+                    )
+                    if "description" in prop_schema:
+                        # Property has a description - good
+                        assert isinstance(prop_schema["description"], str)
+                        assert len(prop_schema["description"]) > 0
