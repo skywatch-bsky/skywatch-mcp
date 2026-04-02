@@ -81,7 +81,7 @@ def _build_pairs_query(
 ) -> str:
     safe_did = _sanitize_did(did)
     date_filter = f"AND date = '{_sanitize_date(date)}'" if date else "AND date = yesterday()"
-    weight_filter = f"AND weight >= {min_weight}" if min_weight else ""
+    weight_filter = f"AND weight >= {int(min_weight)}" if min_weight else ""
 
     return f"""SELECT date, account_a, account_b, weight, shared_urls
 FROM url_cosharing_pairs

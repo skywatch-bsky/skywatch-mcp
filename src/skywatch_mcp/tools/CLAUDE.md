@@ -27,7 +27,7 @@ Expose AT Protocol investigation and moderation capabilities as MCP tools. Each 
 - `query()` vs `query_trusted()`: user-supplied SQL is validated; internal SQL (cosharing, content) uses trusted path with longer timeout
 - Ozone session management: module-level cache with automatic refresh on ExpiredToken
 - Cosharing queries use manual DID/cluster_id/date sanitization (regex allowlist) instead of parameterized queries
-- Cosharing min_members explicitly cast to int for defense-in-depth validation
+- Cosharing numeric parameters (min_members, min_weight) explicitly cast to int for defense-in-depth validation
 
 ## Invariants
 - clickhouse_query only permits SELECT/WITH statements with a LIMIT clause

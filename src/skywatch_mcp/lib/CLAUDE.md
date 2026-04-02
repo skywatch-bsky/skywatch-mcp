@@ -28,6 +28,6 @@ Pure utility code with no MCP or framework dependency. These are the Functional 
 - **Pure**: No side effects, no I/O
 
 ## Key Decisions
-- `ValidationResult` uses Python 3.12 type alias (`type X = A | B`) instead of inheritance
+- `ValidationResult` uses `TypeAlias` from `typing` for Python 3.10+ compatibility
 - ClickHouse client is a lazy singleton to share connections across tools
 - SCHEMA_TABLES list is hardcoded -- must be updated when new ClickHouse tables are added

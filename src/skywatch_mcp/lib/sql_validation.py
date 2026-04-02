@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from typing import TypeAlias
 
 
 @dataclass(frozen=True)
@@ -14,7 +15,7 @@ class ValidationFailure:
     reason: str
 
 
-type ValidationResult = ValidationSuccess | ValidationFailure
+ValidationResult: TypeAlias = ValidationSuccess | ValidationFailure
 
 
 def validate_query(sql: str) -> ValidationResult:

@@ -45,6 +45,34 @@ class TestSanitizationFunctions:
         result = _sanitize_cluster_id("2024-01-15-0042 #HACK!")
         assert result == "2024-01-15-0042"
 
+    def test_sanitize_date_should_accept_valid_format(self):
+        """_sanitize_date should return date string in YYYY-MM-DD format"""
+        from skywatch_mcp.tools.cosharing import _sanitize_date
+
+        result = _sanitize_date("2024-01-15")
+        assert result == "2024-01-15"
+
+    def test_sanitize_date_should_reject_sql_injection_attempt(self):
+        """_sanitize_date should raise ValueError on SQL injection attempt"""
+        from skywatch_mcp.tools.cosharing import _sanitize_date
+
+        with pytest.raises(ValueError):
+            _sanitize_date("2024-01-15'; DROP TABLE")
+
+    def test_sanitize_date_should_reject_invalid_format(self):
+        """_sanitize_date should raise ValueError on non-YYYY-MM-DD format"""
+        from skywatch_mcp.tools.cosharing import _sanitize_date
+
+        with pytest.raises(ValueError):
+            _sanitize_date("not-a-date")
+
+    def test_sanitize_date_should_reject_empty_string(self):
+        """_sanitize_date should raise ValueError on empty string"""
+        from skywatch_mcp.tools.cosharing import _sanitize_date
+
+        with pytest.raises(ValueError):
+            _sanitize_date("")
+
 
 class TestBuildClustersQuery:
     """Test SQL query building for cosharing_clusters"""
