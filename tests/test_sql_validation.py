@@ -1,4 +1,3 @@
-import pytest
 from skywatch_mcp.lib.sql_validation import validate_query, ValidationSuccess, ValidationFailure
 
 

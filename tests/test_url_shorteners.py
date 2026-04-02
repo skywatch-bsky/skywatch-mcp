@@ -1,4 +1,3 @@
-import pytest
 from skywatch_mcp.lib.url_shorteners import is_known_shortener
 
 

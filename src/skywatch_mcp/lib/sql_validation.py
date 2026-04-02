@@ -48,7 +48,7 @@ def validate_query(sql: str) -> ValidationResult:
             reason="Query cannot contain semicolons (multi-statement execution not allowed)"
         )
 
-    if re.search(r"\bINTO\b", upper_normalized, re.IGNORECASE):
+    if re.search(r"\bINTO\b", upper_normalized):
         return ValidationFailure(
             reason="Query cannot contain INTO keyword (data export not allowed)"
         )
