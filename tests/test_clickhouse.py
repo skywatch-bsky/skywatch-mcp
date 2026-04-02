@@ -93,26 +93,20 @@ class TestClickHouseClient:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
-            # Mock DESCRIBE results for first table
-            mock_result_1 = MagicMock()
-            mock_result_1.column_names = ["name", "type"]
-            mock_result_1.column_types = ["String", "String"]
-            mock_result_1.result_rows = [
-                ["id", "UInt64"],
-                ["data", "String"],
-            ]
+            # Create 11 mock results (one per table in SCHEMA_TABLES)
+            mock_results = []
+            for i in range(11):
+                mock_result = MagicMock()
+                mock_result.column_names = ["name", "type"]
+                mock_result.column_types = ["String", "String"]
+                mock_result.result_rows = [
+                    [f"col_{i}_1", "UInt64"],
+                    [f"col_{i}_2", "String"],
+                ]
+                mock_results.append(mock_result)
 
-            # Mock DESCRIBE results for second table
-            mock_result_2 = MagicMock()
-            mock_result_2.column_names = ["name", "type"]
-            mock_result_2.column_types = ["String", "String"]
-            mock_result_2.result_rows = [
-                ["event_id", "UInt64"],
-                ["timestamp", "DateTime"],
-            ]
-
-            # Set up side effects to return different results on successive calls
-            mock_async_client.query.side_effect = [mock_result_1, mock_result_2]
+            # Set up side effects to return each result in sequence
+            mock_async_client.query.side_effect = mock_results
 
             client = ClickHouseClient(mock_settings)
             result = await client.get_schema()
@@ -120,10 +114,12 @@ class TestClickHouseClient:
             assert isinstance(result, QueryResult)
             # Should have name, type, and table columns
             assert any(col["name"] == "table" for col in result.columns)
-            # Should have combined rows with table field
-            assert len(result.rows) == 4  # 2 from first table + 2 from second table
+            # Should have 22 rows total (2 from each of 11 tables)
+            assert len(result.rows) == 22
             # All rows should have table field
             assert all("table" in row for row in result.rows)
+            # Verify all 11 tables were queried
+            assert mock_async_client.query.call_count == 11
 
     @pytest.mark.asyncio
     async def test_get_schema_should_handle_table_errors_gracefully(self, mock_settings):
@@ -132,25 +128,30 @@ class TestClickHouseClient:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
-            # Mock result for successful table
-            mock_result_success = MagicMock()
-            mock_result_success.column_names = ["name", "type"]
-            mock_result_success.column_types = ["String", "String"]
-            mock_result_success.result_rows = [["col1", "String"]]
+            # Create 11 side effects with some exceptions at known positions
+            mock_side_effects = []
+            for i in range(11):
+                if i in (2, 5, 8):  # Fail at positions 2, 5, 8
+                    mock_side_effects.append(Exception(f"Table not found at position {i}"))
+                else:
+                    mock_result = MagicMock()
+                    mock_result.column_names = ["name", "type"]
+                    mock_result.column_types = ["String", "String"]
+                    mock_result.result_rows = [[f"col_{i}", "String"]]
+                    mock_side_effects.append(mock_result)
 
-            # First call succeeds, second fails, third succeeds
-            mock_async_client.query.side_effect = [
-                mock_result_success,
-                Exception("Table not found"),
-                mock_result_success,
-            ]
+            mock_async_client.query.side_effect = mock_side_effects
 
             client = ClickHouseClient(mock_settings)
             result = await client.get_schema()
 
             assert isinstance(result, QueryResult)
-            # Should only have rows from successful tables
-            assert len(result.rows) == 2
+            # Should have 8 rows (1 from each successful table: 11 - 3 exceptions = 8)
+            assert len(result.rows) == 8
+            # All rows should have table field
+            assert all("table" in row for row in result.rows)
+            # Verify all 11 tables were attempted
+            assert mock_async_client.query.call_count == 11
 
     @pytest.mark.asyncio
     async def test_client_should_use_async_methods(self, mock_settings):
