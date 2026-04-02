@@ -1,4 +1,3 @@
-import pytest
 from datetime import datetime, timezone
 from skywatch_mcp.lib.whois_parser import parse_whois_response
 
