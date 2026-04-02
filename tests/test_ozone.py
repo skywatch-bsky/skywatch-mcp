@@ -366,7 +366,6 @@ class TestQueryTools:
 
     def test_ozone_query_events_invalid_type(self):
         with pytest.raises(ValueError, match="Unknown event type"):
-
             params = {"types": ["invalid_type"]}
             for t in params["types"]:
                 mapped = EVENT_TYPE_MAP.get(t)
