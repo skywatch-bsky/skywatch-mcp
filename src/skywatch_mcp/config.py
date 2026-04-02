@@ -5,7 +5,7 @@ from pydantic import Field
 
 
 class ClickHouseSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CLICKHOUSE_")
+    model_config = SettingsConfigDict(env_prefix="CLICKHOUSE_", env_file=".env", extra="ignore")
 
     host: str = Field(default="http://localhost")
     port: int = Field(default=8123)
@@ -22,7 +22,7 @@ class ClickHouseSettings(BaseSettings):
 
 
 class OzoneSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="OZONE_")
+    model_config = SettingsConfigDict(env_prefix="OZONE_", env_file=".env", extra="ignore")
 
     service_url: str | None = Field(default=None)
     handle: str | None = Field(default=None)
