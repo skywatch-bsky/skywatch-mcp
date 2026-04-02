@@ -41,6 +41,7 @@ Name Server: NS3.EXAMPLE.COM
 
     def test_calculate_domain_age_from_creation_date(self):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc)
         past_date = now - timedelta(days=100)
         past_date_str = past_date.isoformat().replace("+00:00", "Z")

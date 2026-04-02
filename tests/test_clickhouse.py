@@ -27,7 +27,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_query_should_validate_and_execute_valid_select(self, mock_settings):
         """Validates query then executes against ClickHouse"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -69,7 +71,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_query_trusted_should_not_validate(self, mock_settings):
         """query_trusted should execute without validation"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -89,7 +93,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_get_schema_should_describe_all_tables(self, mock_settings):
         """get_schema should DESCRIBE all SCHEMA_TABLES and combine results"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -124,7 +130,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_get_schema_should_handle_table_errors_gracefully(self, mock_settings):
         """get_schema should skip tables that fail to DESCRIBE"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -156,7 +164,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_client_should_use_async_methods(self, mock_settings):
         """Client should use AsyncClient.query (async)"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -176,7 +186,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_query_should_set_60_second_timeout(self, mock_settings):
         """query() should use 60s max_execution_time"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
@@ -196,7 +208,9 @@ class TestClickHouseClient:
     @pytest.mark.asyncio
     async def test_query_trusted_should_set_120_second_timeout(self, mock_settings):
         """query_trusted() should use 120s max_execution_time"""
-        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 

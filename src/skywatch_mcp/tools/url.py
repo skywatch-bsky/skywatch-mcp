@@ -1,6 +1,7 @@
 # pattern: Imperative Shell
 
 import json
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -9,7 +10,7 @@ from skywatch_mcp.lib.url_shorteners import is_known_shortener
 from skywatch_mcp.server import mcp
 
 
-async def _follow_redirects(start_url: str, max_hops: int = 15) -> dict:
+async def _follow_redirects(start_url: str, max_hops: int = 15) -> dict[str, Any]:
     hops = []
     current_url = start_url
     final_url = start_url

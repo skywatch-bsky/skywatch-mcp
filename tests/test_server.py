@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 from skywatch_mcp.server import mcp
 
@@ -41,9 +40,9 @@ class TestServerToolRegistration:
             "ozone_query_events",
         }
 
-        assert (
-            tool_names == expected_tools
-        ), f"Tool mismatch. Missing: {expected_tools - tool_names}, Extra: {tool_names - expected_tools}"
+        assert tool_names == expected_tools, (
+            f"Tool mismatch. Missing: {expected_tools - tool_names}, Extra: {tool_names - expected_tools}"
+        )
 
     def test_console_script_entry_point_importable(self) -> None:
         """Test AC5.3: Server main function is importable and callable."""

@@ -13,7 +13,7 @@ from skywatch_mcp.server import mcp
 def _sync_whois_lookup(domain: str) -> str:
     result = whois_module.whois(domain)
     if hasattr(result, "text"):
-        return result.text
+        return str(result.text)
     return str(result)
 
 

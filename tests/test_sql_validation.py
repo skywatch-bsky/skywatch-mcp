@@ -135,21 +135,15 @@ class TestWhitespaceNormalization:
     """Whitespace normalization"""
 
     def test_should_accept_query_with_extra_spaces(self):
-        result = validate_query(
-            "SELECT  *  FROM   osprey_execution_results   LIMIT   10"
-        )
+        result = validate_query("SELECT  *  FROM   osprey_execution_results   LIMIT   10")
         assert isinstance(result, ValidationSuccess)
 
     def test_should_accept_query_with_tabs_and_newlines(self):
-        result = validate_query(
-            "SELECT\n\t*\n\tFROM\n\tosprey_execution_results\n\tLIMIT\n\t10"
-        )
+        result = validate_query("SELECT\n\t*\n\tFROM\n\tosprey_execution_results\n\tLIMIT\n\t10")
         assert isinstance(result, ValidationSuccess)
 
     def test_should_return_normalized_query_on_success(self):
-        result = validate_query(
-            "SELECT  *  FROM   osprey_execution_results   LIMIT   10"
-        )
+        result = validate_query("SELECT  *  FROM   osprey_execution_results   LIMIT   10")
         assert isinstance(result, ValidationSuccess)
         assert result.normalized == "SELECT * FROM osprey_execution_results LIMIT 10"
 
@@ -183,9 +177,7 @@ class TestDataExportPrevention:
     """Data export prevention"""
 
     def test_should_reject_queries_with_semicolon_multi_statement(self):
-        result = validate_query(
-            "SELECT * FROM osprey_execution_results LIMIT 10; DROP TABLE users"
-        )
+        result = validate_query("SELECT * FROM osprey_execution_results LIMIT 10; DROP TABLE users")
         assert isinstance(result, ValidationFailure)
         assert "semicolon" in result.reason
 

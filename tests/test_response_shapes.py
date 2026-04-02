@@ -44,9 +44,7 @@ class TestResponseShapes:
                 {"name": "name", "type": "String"},
                 {"name": "type", "type": "String"},
             ]
-            mock_result.rows = [
-                {"table": "test_table", "name": "id", "type": "Int32"}
-            ]
+            mock_result.rows = [{"table": "test_table", "name": "id", "type": "Int32"}]
 
             mock_client = MagicMock()
             mock_client.get_schema = AsyncMock(return_value=mock_result)
@@ -86,8 +84,10 @@ class TestResponseShapes:
     @pytest.mark.asyncio
     async def test_domain_check_response_shape(self) -> None:
         """Test domain_check returns {domain: ..., resolves: ..., records: {...}, http: ...}."""
-        with patch("skywatch_mcp.tools.domain._resolve_dns_records") as mock_resolve, \
-             patch("skywatch_mcp.tools.domain._check_http_status") as mock_http:
+        with (
+            patch("skywatch_mcp.tools.domain._resolve_dns_records") as mock_resolve,
+            patch("skywatch_mcp.tools.domain._check_http_status") as mock_http,
+        ):
             mock_resolve.return_value = {
                 "a": ["1.1.1.1"],
                 "aaaa": [],
@@ -201,8 +201,10 @@ class TestResponseShapes:
     @pytest.mark.asyncio
     async def test_whois_lookup_response_shape(self) -> None:
         """Test whois_lookup returns JSON with registrar and domain info."""
-        with patch("skywatch_mcp.tools.whois.whois_module.whois") as mock_whois, \
-             patch("skywatch_mcp.tools.whois.parse_whois_response") as mock_parse:
+        with (
+            patch("skywatch_mcp.tools.whois.whois_module.whois") as mock_whois,
+            patch("skywatch_mcp.tools.whois.parse_whois_response") as mock_parse,
+        ):
             mock_whois_obj = MagicMock()
             mock_whois_obj.text = "some whois text"
             mock_whois.return_value = mock_whois_obj

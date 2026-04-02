@@ -47,7 +47,9 @@ class TestClickHouseTools:
             mock_get_client.return_value = mock_client
 
             # Setup mock to raise validation error
-            mock_client.query.side_effect = ValueError("Query validation failed: Query must contain a LIMIT clause")
+            mock_client.query.side_effect = ValueError(
+                "Query validation failed: Query must contain a LIMIT clause"
+            )
 
             from skywatch_mcp.tools.clickhouse import clickhouse_query
 

@@ -50,9 +50,7 @@ def _validate_ozone_config() -> str | None:
     return None
 
 
-def _build_subject_ref(
-    subject: str, cid: str | None = None
-) -> dict[str, str]:
+def _build_subject_ref(subject: str, cid: str | None = None) -> dict[str, str]:
     if subject.startswith("did:"):
         return {"$type": "com.atproto.admin.defs#repoRef", "did": subject}
     if subject.startswith("at://"):
@@ -61,9 +59,7 @@ def _build_subject_ref(
                 "AT-URI subjects require a cid parameter. Use com.atproto.repo.getRecord to resolve the CID for the record."
             )
         return {"$type": "com.atproto.repo.strongRef", "uri": subject, "cid": cid}
-    raise ValueError(
-        f"Subject must be a DID (did:plc:...) or AT-URI (at://...). Got: {subject}"
-    )
+    raise ValueError(f"Subject must be a DID (did:plc:...) or AT-URI (at://...). Got: {subject}")
 
 
 def _build_mod_tool(batch_id: str | None = None) -> dict[str, Any]:
@@ -108,15 +104,13 @@ async def _create_session() -> str:
             },
         )
         if response.status_code != 200:
-            raise ValueError(
-                f"Failed to create session ({response.status_code}): {response.text}"
-            )
-        session = response.json()
+            raise ValueError(f"Failed to create session ({response.status_code}): {response.text}")
+        session: dict[str, Any] = response.json()
         _cached_session = {
             "accessJwt": session["accessJwt"],
             "refreshJwt": session["refreshJwt"],
         }
-        return session["accessJwt"]
+        return str(session["accessJwt"])
 
 
 async def _refresh_session() -> str:
@@ -133,12 +127,12 @@ async def _refresh_session() -> str:
             _cached_session = None
             return await _create_session()
 
-        session = response.json()
+        session: dict[str, Any] = response.json()
         _cached_session = {
             "accessJwt": session["accessJwt"],
             "refreshJwt": session["refreshJwt"],
         }
-        return session["accessJwt"]
+        return str(session["accessJwt"])
 
 
 async def _get_access_token() -> str:
@@ -182,17 +176,14 @@ async def _ozone_request(
             access_jwt = await _refresh_session()
             response = await make_request(access_jwt)
             if not response.is_success:
-                raise ValueError(
-                    f"Ozone API error ({response.status_code}): {response.text}"
-                )
+                raise ValueError(f"Ozone API error ({response.status_code}): {response.text}")
         else:
-            raise ValueError(
-                f"Ozone API error ({response.status_code}): {response_body}"
-            )
+            raise ValueError(f"Ozone API error ({response.status_code}): {response_body}")
 
     text = response.text
     if text:
-        return json.loads(text)
+        parsed: Any = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
     return {}
 
 
@@ -260,7 +251,13 @@ async def ozone_label(
     }
 
     result = await _ozone_request("POST", "tools.ozone.moderation.emitEvent", body)
-    response = {"success": True, "action": action, "subject": subject, "label": label, "response": result}
+    response = {
+        "success": True,
+        "action": action,
+        "subject": subject,
+        "label": label,
+        "response": result,
+    }
     return json.dumps(response, indent=2)
 
 
@@ -273,7 +270,10 @@ async def ozone_comment(
     batch_id: str | None = None,
 ) -> str:
     """Add a comment to a subject's moderation record. Comments can be pinned to the top of the moderation history."""
-    event = {"$type": "tools.ozone.moderation.defs#modEventComment", **({"sticky": True} if sticky else {})}
+    event = {
+        "$type": "tools.ozone.moderation.defs#modEventComment",
+        **({"sticky": True} if sticky else {}),
+    }
     return await _emit_ozone_event(subject, event, cid=cid, comment=comment, batch_id=batch_id)
 
 
@@ -332,7 +332,10 @@ async def ozone_mute(
     batch_id: str | None = None,
 ) -> str:
     """Mute a subject to temporarily suppress notifications and queue visibility for a specified duration."""
-    event = {"$type": "tools.ozone.moderation.defs#modEventMute", "durationInHours": duration_in_hours}
+    event = {
+        "$type": "tools.ozone.moderation.defs#modEventMute",
+        "durationInHours": duration_in_hours,
+    }
     return await _emit_ozone_event(subject, event, cid=cid, comment=comment, batch_id=batch_id)
 
 
@@ -395,9 +398,7 @@ async def ozone_query_statuses(
     }
 
     query_string = _build_query_string(query_params)
-    result = await _ozone_request(
-        "GET", f"tools.ozone.moderation.queryStatuses{query_string}"
-    )
+    result = await _ozone_request("GET", f"tools.ozone.moderation.queryStatuses{query_string}")
     return json.dumps(result, indent=2)
 
 
@@ -442,7 +443,5 @@ async def ozone_query_events(
     }
 
     query_string = _build_query_string(query_params)
-    result = await _ozone_request(
-        "GET", f"tools.ozone.moderation.queryEvents{query_string}"
-    )
+    result = await _ozone_request("GET", f"tools.ozone.moderation.queryEvents{query_string}")
     return json.dumps(result, indent=2)
