@@ -1,0 +1,238 @@
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from skywatch_mcp.lib.clickhouse_client import ClickHouseClient, QueryResult, SCHEMA_TABLES
+from skywatch_mcp.config import ClickHouseSettings
+
+
+class TestClickHouseClient:
+    """Test ClickHouseClient wrapper"""
+
+    @pytest.fixture
+    def mock_settings(self):
+        return ClickHouseSettings(
+            host="http://localhost",
+            port=8123,
+            user="default",
+            password="",
+            database="default",
+        )
+
+    @pytest.fixture
+    async def mock_client(self):
+        """Mock AsyncClient"""
+        mock = AsyncMock()
+        return mock
+
+    @pytest.mark.asyncio
+    async def test_query_should_validate_and_execute_valid_select(self, mock_settings):
+        """Validates query then executes against ClickHouse"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            mock_result = MagicMock()
+            mock_result.column_names = ["id", "name"]
+            mock_result.column_types = ["UInt64", "String"]
+            mock_result.result_rows = [[1, "test"], [2, "test2"]]
+            mock_async_client.query.return_value = mock_result
+
+            client = ClickHouseClient(mock_settings)
+            result = await client.query("SELECT id, name FROM users LIMIT 10")
+
+            assert isinstance(result, QueryResult)
+            assert result.columns == [
+                {"name": "id", "type": "UInt64"},
+                {"name": "name", "type": "String"},
+            ]
+            assert result.rows == [
+                {"id": 1, "name": "test"},
+                {"id": 2, "name": "test2"},
+            ]
+
+    @pytest.mark.asyncio
+    async def test_query_should_reject_missing_limit(self, mock_settings):
+        """Query without LIMIT should raise ValueError"""
+        client = ClickHouseClient(mock_settings)
+
+        with pytest.raises(ValueError, match="Query validation failed"):
+            await client.query("SELECT * FROM users")
+
+    @pytest.mark.asyncio
+    async def test_query_should_reject_non_select(self, mock_settings):
+        """Query starting with non-SELECT should raise ValueError"""
+        client = ClickHouseClient(mock_settings)
+
+        with pytest.raises(ValueError, match="Query validation failed"):
+            await client.query("INSERT INTO users VALUES (1) LIMIT 10")
+
+    @pytest.mark.asyncio
+    async def test_query_trusted_should_not_validate(self, mock_settings):
+        """query_trusted should execute without validation"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            mock_result = MagicMock()
+            mock_result.column_names = ["result"]
+            mock_result.column_types = ["UInt64"]
+            mock_result.result_rows = [[42]]
+            mock_async_client.query.return_value = mock_result
+
+            client = ClickHouseClient(mock_settings)
+            result = await client.query_trusted("SELECT 42")
+
+            assert isinstance(result, QueryResult)
+            assert result.columns == [{"name": "result", "type": "UInt64"}]
+            assert result.rows == [{"result": 42}]
+
+    @pytest.mark.asyncio
+    async def test_get_schema_should_describe_all_tables(self, mock_settings):
+        """get_schema should DESCRIBE all SCHEMA_TABLES and combine results"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            # Mock DESCRIBE results for first table
+            mock_result_1 = MagicMock()
+            mock_result_1.column_names = ["name", "type"]
+            mock_result_1.column_types = ["String", "String"]
+            mock_result_1.result_rows = [
+                ["id", "UInt64"],
+                ["data", "String"],
+            ]
+
+            # Mock DESCRIBE results for second table
+            mock_result_2 = MagicMock()
+            mock_result_2.column_names = ["name", "type"]
+            mock_result_2.column_types = ["String", "String"]
+            mock_result_2.result_rows = [
+                ["event_id", "UInt64"],
+                ["timestamp", "DateTime"],
+            ]
+
+            # Set up side effects to return different results on successive calls
+            mock_async_client.query.side_effect = [mock_result_1, mock_result_2]
+
+            client = ClickHouseClient(mock_settings)
+            result = await client.get_schema()
+
+            assert isinstance(result, QueryResult)
+            # Should have name, type, and table columns
+            assert any(col["name"] == "table" for col in result.columns)
+            # Should have combined rows with table field
+            assert len(result.rows) == 4  # 2 from first table + 2 from second table
+            # All rows should have table field
+            assert all("table" in row for row in result.rows)
+
+    @pytest.mark.asyncio
+    async def test_get_schema_should_handle_table_errors_gracefully(self, mock_settings):
+        """get_schema should skip tables that fail to DESCRIBE"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            # Mock result for successful table
+            mock_result_success = MagicMock()
+            mock_result_success.column_names = ["name", "type"]
+            mock_result_success.column_types = ["String", "String"]
+            mock_result_success.result_rows = [["col1", "String"]]
+
+            # First call succeeds, second fails, third succeeds
+            mock_async_client.query.side_effect = [
+                mock_result_success,
+                Exception("Table not found"),
+                mock_result_success,
+            ]
+
+            client = ClickHouseClient(mock_settings)
+            result = await client.get_schema()
+
+            assert isinstance(result, QueryResult)
+            # Should only have rows from successful tables
+            assert len(result.rows) == 2
+
+    @pytest.mark.asyncio
+    async def test_client_should_use_async_methods(self, mock_settings):
+        """Client should use AsyncClient.query (async)"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            mock_result = MagicMock()
+            mock_result.column_names = ["test"]
+            mock_result.column_types = ["String"]
+            mock_result.result_rows = [["value"]]
+            mock_async_client.query = AsyncMock(return_value=mock_result)
+
+            client = ClickHouseClient(mock_settings)
+            await client.query_trusted("SELECT 'test' LIMIT 1")
+
+            # Verify async query method was called
+            mock_async_client.query.assert_called_once()
+            # Verify it was awaited (AsyncMock verifies this)
+
+    @pytest.mark.asyncio
+    async def test_query_should_set_60_second_timeout(self, mock_settings):
+        """query() should use 60s max_execution_time"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            mock_result = MagicMock()
+            mock_result.column_names = ["test"]
+            mock_result.column_types = ["String"]
+            mock_result.result_rows = [["value"]]
+            mock_async_client.query.return_value = mock_result
+
+            client = ClickHouseClient(mock_settings)
+            await client.query("SELECT 1 LIMIT 1")
+
+            # Verify settings were passed with 60s timeout
+            call_args = mock_async_client.query.call_args
+            assert call_args[1]["settings"]["max_execution_time"] == 60
+
+    @pytest.mark.asyncio
+    async def test_query_trusted_should_set_120_second_timeout(self, mock_settings):
+        """query_trusted() should use 120s max_execution_time"""
+        with patch("skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client") as mock_get:
+            mock_async_client = AsyncMock()
+            mock_get.return_value = mock_async_client
+
+            mock_result = MagicMock()
+            mock_result.column_names = ["test"]
+            mock_result.column_types = ["String"]
+            mock_result.result_rows = [["value"]]
+            mock_async_client.query.return_value = mock_result
+
+            client = ClickHouseClient(mock_settings)
+            await client.query_trusted("SELECT 1")
+
+            # Verify settings were passed with 120s timeout
+            call_args = mock_async_client.query.call_args
+            assert call_args[1]["settings"]["max_execution_time"] == 120
+
+
+class TestSchemaTables:
+    """Test SCHEMA_TABLES constant"""
+
+    def test_should_have_11_tables(self):
+        """SCHEMA_TABLES should contain 11 predefined tables"""
+        assert len(SCHEMA_TABLES) == 11
+
+    def test_should_have_expected_table_names(self):
+        """SCHEMA_TABLES should contain all expected table names"""
+        expected = {
+            "default.osprey_execution_results",
+            "default.pds_signup_anomalies",
+            "default.url_overdispersion_results",
+            "default.account_entropy_results",
+            "default.url_cosharing_pairs",
+            "default.url_cosharing_clusters",
+            "default.url_cosharing_membership",
+            "default.quote_cosharing_pairs",
+            "default.quote_cosharing_clusters",
+            "default.quote_cosharing_membership",
+            "default.quote_overdispersion_results",
+        }
+        assert set(SCHEMA_TABLES) == expected
