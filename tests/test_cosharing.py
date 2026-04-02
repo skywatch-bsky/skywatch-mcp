@@ -92,9 +92,7 @@ class TestBuildClustersQuery:
         """_build_clusters_query with cluster_id and date should include date filter"""
         from skywatch_mcp.tools.cosharing import _build_clusters_query
 
-        query = _build_clusters_query(
-            cluster_id="2024-01-15-0042", date="2024-01-15", limit=20
-        )
+        query = _build_clusters_query(cluster_id="2024-01-15-0042", date="2024-01-15", limit=20)
 
         assert "AND run_date = '2024-01-15'" in query
 
