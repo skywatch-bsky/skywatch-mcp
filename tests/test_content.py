@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from skywatch_mcp.lib.clickhouse_client import QueryResult
 from skywatch_mcp.tools.content import (
