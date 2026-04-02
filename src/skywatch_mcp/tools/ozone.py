@@ -227,7 +227,17 @@ async def ozone_label(
     batch_id: str | None = None,
     duration_in_hours: int | None = None,
 ) -> str:
-    """Apply or remove a moderation label on a subject via the Ozone moderation service."""
+    """Apply or remove a moderation label on a subject via the Ozone moderation service.
+
+    Args:
+        subject: DID (did:plc:...) or AT-URI (at://...) of the subject.
+        label: The label value to apply or remove (e.g. "intolerance", "spam").
+        action: Use "apply" to add the label, "remove" to negate it. Defaults to apply for any value other than "remove".
+        comment: Optional comment to attach to the moderation event.
+        cid: Required when subject is an AT-URI. The CID of the record.
+        batch_id: Optional UUID to group related label operations.
+        duration_in_hours: Hours until label auto-expires. Omit for permanent. Only meaningful for apply.
+    """
     # This tool has custom logic beyond _emit_ozone_event (buildOzoneRequest pattern from TS)
     config_error = _validate_ozone_config()
     if config_error:
@@ -240,7 +250,7 @@ async def ozone_label(
     event = {
         "$type": "tools.ozone.moderation.defs#modEventLabel",
         **({"comment": comment} if comment else {}),
-        "createLabelVals": [label] if action == "apply" else [],
+        "createLabelVals": [label] if action != "remove" else [],
         "negateLabelVals": [label] if action == "remove" else [],
         **({"durationInHours": duration_in_hours} if duration_in_hours is not None else {}),
     }
