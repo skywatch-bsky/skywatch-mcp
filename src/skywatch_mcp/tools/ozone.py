@@ -394,7 +394,18 @@ async def ozone_query_statuses(
     if config_error:
         raise ValueError(config_error)
 
-    mapped_review_state = REVIEW_STATE_MAP.get(review_state) if review_state else None
+    mapped_review_state: str | None = None
+    if review_state:
+        valid_states = set(REVIEW_STATE_MAP.values())
+        if review_state in valid_states:
+            mapped_review_state = review_state
+        elif review_state in REVIEW_STATE_MAP:
+            mapped_review_state = REVIEW_STATE_MAP[review_state]
+        else:
+            raise ValueError(
+                f"Unknown review state: {review_state}. "
+                f"Valid values: {', '.join(sorted(REVIEW_STATE_MAP.keys()))}"
+            )
 
     query_params: dict[str, str | list[str] | None] = {
         "subject": subject,

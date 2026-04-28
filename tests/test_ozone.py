@@ -331,6 +331,55 @@ class TestQueryTools:
             assert "tools.ozone.moderation.defs%23reviewOpen" in call_args[0][0]
 
     @pytest.mark.asyncio
+    async def test_ozone_query_statuses_accepts_full_qualified_review_state(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"statuses": []}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.get = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_query_statuses(
+                review_state="tools.ozone.moderation.defs#reviewOpen"
+            )
+
+            call_args = async_client_mock.get.call_args
+            assert "tools.ozone.moderation.defs%23reviewOpen" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_ozone_query_statuses_rejects_invalid_review_state(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        with pytest.raises(ValueError, match="Unknown review state"):
+            await ozone_module.ozone_query_statuses(review_state="bogus")
+
+    @pytest.mark.asyncio
     async def test_ozone_query_events_maps_event_types(self, monkeypatch):
         monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
         monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
