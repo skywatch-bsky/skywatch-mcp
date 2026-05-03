@@ -2,6 +2,8 @@
 
 MCP server for investigating activity on the AT Protocol / Bluesky network. Exposes 20 tools across five domains: ClickHouse queries, network investigation, content similarity, co-sharing analysis, and Ozone moderation.
 
+Draws heavily on [Phoebe by haileyok](https://github.com/haileyok/phoebe)
+
 ## Requirements
 
 - Python 3.12+
