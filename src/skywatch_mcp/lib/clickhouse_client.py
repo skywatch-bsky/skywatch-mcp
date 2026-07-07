@@ -24,6 +24,7 @@ SCHEMA_TABLES = [
     "default.url_cosharing_pairs",
     "default.url_cosharing_clusters",
     "default.url_cosharing_membership",
+    "default.url_cosharing_runs",
     "default.quote_cosharing_pairs",
     "default.quote_cosharing_clusters",
     "default.quote_cosharing_membership",

@@ -99,9 +99,9 @@ class TestClickHouseClient:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
-            # Create 11 mock results (one per table in SCHEMA_TABLES)
+            # Create 12 mock results (one per table in SCHEMA_TABLES)
             mock_results = []
-            for i in range(11):
+            for i in range(12):
                 mock_result = MagicMock()
                 mock_result.column_names = ["name", "type"]
                 mock_result.column_types = ["String", "String"]
@@ -120,12 +120,12 @@ class TestClickHouseClient:
             assert isinstance(result, QueryResult)
             # Should have name, type, and table columns
             assert any(col["name"] == "table" for col in result.columns)
-            # Should have 22 rows total (2 from each of 11 tables)
-            assert len(result.rows) == 22
+            # Should have 24 rows total (2 from each of 12 tables)
+            assert len(result.rows) == 24
             # All rows should have table field
             assert all("table" in row for row in result.rows)
-            # Verify all 11 tables were queried
-            assert mock_async_client.query.call_count == 11
+            # Verify all 12 tables were queried
+            assert mock_async_client.query.call_count == 12
 
     @pytest.mark.asyncio
     async def test_get_schema_should_handle_table_errors_gracefully(self, mock_settings):
@@ -138,7 +138,7 @@ class TestClickHouseClient:
 
             # Create 11 side effects with some exceptions at known positions
             mock_side_effects = []
-            for i in range(11):
+            for i in range(12):
                 if i in (2, 5, 8):  # Fail at positions 2, 5, 8
                     mock_side_effects.append(Exception(f"Table not found at position {i}"))
                 else:
@@ -154,12 +154,12 @@ class TestClickHouseClient:
             result = await client.get_schema()
 
             assert isinstance(result, QueryResult)
-            # Should have 8 rows (1 from each successful table: 11 - 3 exceptions = 8)
-            assert len(result.rows) == 8
+            # Should have 9 rows (1 from each successful table: 12 - 3 exceptions = 9)
+            assert len(result.rows) == 9
             # All rows should have table field
             assert all("table" in row for row in result.rows)
-            # Verify all 11 tables were attempted
-            assert mock_async_client.query.call_count == 11
+            # Verify all 12 tables were attempted
+            assert mock_async_client.query.call_count == 12
 
     @pytest.mark.asyncio
     async def test_client_should_use_async_methods(self, mock_settings):
@@ -232,8 +232,8 @@ class TestSchemaTables:
     """Test SCHEMA_TABLES constant"""
 
     def test_should_have_11_tables(self):
-        """SCHEMA_TABLES should contain 11 predefined tables"""
-        assert len(SCHEMA_TABLES) == 11
+        """SCHEMA_TABLES should contain 12 predefined tables"""
+        assert len(SCHEMA_TABLES) == 12
 
     def test_should_have_expected_table_names(self):
         """SCHEMA_TABLES should contain all expected table names"""
@@ -245,6 +245,7 @@ class TestSchemaTables:
             "default.url_cosharing_pairs",
             "default.url_cosharing_clusters",
             "default.url_cosharing_membership",
+            "default.url_cosharing_runs",
             "default.quote_cosharing_pairs",
             "default.quote_cosharing_clusters",
             "default.quote_cosharing_membership",

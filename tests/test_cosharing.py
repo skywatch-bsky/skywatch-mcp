@@ -176,6 +176,33 @@ class TestBuildClustersQuery:
 
         assert "LIMIT 100" in query
 
+    def test_build_clusters_query_includes_new_density_columns(self):
+        """_build_clusters_query should include mean_edge_similarity and subgraph_density"""
+        from skywatch_mcp.tools.cosharing import _build_clusters_query
+
+        query = _build_clusters_query(limit=20)
+
+        assert "mean_edge_similarity" in query
+        assert "subgraph_density" in query
+
+    def test_build_clusters_query_by_did_includes_new_density_columns(self):
+        """_build_clusters_query with did should include mean_edge_similarity and subgraph_density"""
+        from skywatch_mcp.tools.cosharing import _build_clusters_query
+
+        query = _build_clusters_query(did="did:plc:test", limit=20)
+
+        assert "c.mean_edge_similarity" in query
+        assert "c.subgraph_density" in query
+
+    def test_build_clusters_query_by_cluster_id_includes_new_density_columns(self):
+        """_build_clusters_query with cluster_id should include mean_edge_similarity and subgraph_density"""
+        from skywatch_mcp.tools.cosharing import _build_clusters_query
+
+        query = _build_clusters_query(cluster_id="2024-01-15-0042", limit=20)
+
+        assert "mean_edge_similarity" in query
+        assert "subgraph_density" in query
+
 
 class TestBuildPairsQuery:
     """Test SQL query building for cosharing_pairs"""
@@ -275,6 +302,15 @@ class TestBuildEvolutionQuery:
         query = _build_evolution_query(cluster_id="2024-01-15-0042", limit=100)
 
         assert "LIMIT 100" in query
+
+    def test_build_evolution_query_includes_new_density_columns(self):
+        """_build_evolution_query should include mean_edge_similarity and subgraph_density"""
+        from skywatch_mcp.tools.cosharing import _build_evolution_query
+
+        query = _build_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "mean_edge_similarity" in query
+        assert "subgraph_density" in query
 
 
 class TestCosharingClustersToolAC1_8:

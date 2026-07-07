@@ -18,7 +18,7 @@ async def clickhouse_query(sql: str) -> str:
 
 @mcp.tool()
 async def clickhouse_schema() -> str:
-    """Get the column definitions (names and types) for all queryable tables including osprey_execution_results, pds_signup_anomalies, url/quote overdispersion_results, account_entropy_results, url/quote cosharing pairs/clusters/membership."""
+    """Get the column definitions (names and types) for all queryable tables including osprey_execution_results, pds_signup_anomalies, url/quote overdispersion_results, account_entropy_results, url/quote cosharing pairs/clusters/membership, and url_cosharing_runs."""
     try:
         result = await get_client().get_schema()
         return json.dumps({"columns": result.columns, "rows": result.rows}, indent=2, default=str)
