@@ -1,11 +1,17 @@
 # pattern: Functional Core
 
+import math
 import re
+from datetime import date
 
 
 def sanitize_did(did: str) -> str:
-    """Strip characters not valid in a DID (lowercase alnum, colon, dot)."""
-    return re.sub(r"[^a-z0-9:.]", "", did)
+    """Strip characters not valid in a DID (letters, digits, colon, dot, hyphen).
+
+    Preserves uppercase characters, which are valid in ``did:key`` multibase
+    encodings (e.g. ``did:key:z6Mk…``).
+    """
+    return re.sub(r"[^a-zA-Z0-9:.-]", "", did)
 
 
 def sanitize_cluster_id(cluster_id: str) -> str:
@@ -13,14 +19,21 @@ def sanitize_cluster_id(cluster_id: str) -> str:
     return re.sub(r"[^a-z0-9-]", "", cluster_id)
 
 
-def sanitize_date(date: str) -> str:
+def sanitize_date(date_str: str) -> str:
     """Validate and return date in YYYY-MM-DD format.
 
-    Raises ValueError if the date does not match the expected format.
+    Performs both shape validation (regex) and calendar validation
+    (``date.fromisoformat``), rejecting impossible dates like ``2026-99-99``.
+
+    Raises ValueError if the date is malformed or not a real calendar date.
     """
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
-        raise ValueError(f"Invalid date format. Expected YYYY-MM-DD, got: {date}")
-    return date
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        raise ValueError(f"Invalid date format. Expected YYYY-MM-DD, got: {date_str}")
+    try:
+        date.fromisoformat(date_str)
+    except ValueError:
+        raise ValueError(f"Invalid calendar date: {date_str}") from None
+    return date_str
 
 
 def sanitize_hostname(hostname: str) -> str:
@@ -29,5 +42,48 @@ def sanitize_hostname(hostname: str) -> str:
 
 
 def sanitize_at_uri(uri: str) -> str:
-    """Strip characters not valid in an AT-URI (lowercase alnum, colon, dot, slash)."""
-    return re.sub(r"[^a-z0-9:./]", "", uri)
+    """Strip characters not valid in an AT-URI (letters, digits, colon, dot, slash, underscore, hyphen).
+
+    Preserves uppercase characters, which can appear in rkeys and
+    ``did:key`` identifiers embedded in the authority component.
+    """
+    return re.sub(r"[^a-zA-Z0-9:./_-]", "", uri)
+
+
+def validate_limit(limit: int, maximum: int = 10000) -> int:
+    """Validate that ``limit`` is a positive integer within ``[1, maximum]``.
+
+    Raises ValueError on out-of-range or non-finite values.
+    """
+    n = int(limit)
+    if n < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
+    if n > maximum:
+        raise ValueError(f"limit must be <= {maximum}, got {limit}")
+    return n
+
+
+def validate_days(days: int, maximum: int = 365) -> int:
+    """Validate that ``days`` is a positive integer within ``[1, maximum]``.
+
+    Raises ValueError on out-of-range values.
+    """
+    n = int(days)
+    if n < 1:
+        raise ValueError(f"days must be >= 1, got {days}")
+    if n > maximum:
+        raise ValueError(f"days must be <= {maximum}, got {days}")
+    return n
+
+
+def validate_q_value(q_value: float) -> float:
+    """Validate that ``q_value`` is a finite float in ``[0.0, 1.0]``.
+
+    Raises ValueError on NaN, infinity, or out-of-range values.
+    """
+    v = float(q_value)
+    if not math.isfinite(v):
+        raise ValueError(f"q_value must be finite, got {q_value}")
+    if v < 0.0 or v > 1.0:
+        raise ValueError(f"q_value must be in [0.0, 1.0], got {q_value}")
+    return v

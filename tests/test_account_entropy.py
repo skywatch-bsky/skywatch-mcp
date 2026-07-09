@@ -167,6 +167,18 @@ class TestBuildAccountEntropyTrendQuery:
 
         assert "user_id = 'did:plc:abc'" in query
 
+    def test_negative_limit_raises(self):
+        from skywatch_mcp.tools.account_entropy import _build_account_entropy_results_query
+
+        with pytest.raises(ValueError):
+            _build_account_entropy_results_query(limit=-1)
+
+    def test_negative_days_raises(self):
+        from skywatch_mcp.tools.account_entropy import _build_account_entropy_trend_query
+
+        with pytest.raises(ValueError):
+            _build_account_entropy_trend_query(user_id="did:plc:abc", days=0)
+
 
 class TestAccountEntropyResultsTool:
     """Test account_entropy_results tool"""

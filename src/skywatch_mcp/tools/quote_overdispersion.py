@@ -3,7 +3,13 @@
 import json
 
 from skywatch_mcp.lib.clickhouse_client import get_client
-from skywatch_mcp.lib.sanitizers import sanitize_at_uri, sanitize_date, sanitize_did
+from skywatch_mcp.lib.sanitizers import (
+    sanitize_at_uri,
+    sanitize_date,
+    sanitize_did,
+    validate_days,
+    validate_limit,
+)
 from skywatch_mcp.server import mcp
 
 _VALID_GRANULARITIES = {"hourly", "daily"}
@@ -49,12 +55,14 @@ def _build_quote_overdispersion_results_query(
 
     if only_anomalies:
         filters.append("is_anomaly = 1")
-        if signal == "volume":
-            filters.append("volume_q_value <= density_q_value")
-        elif signal == "density":
-            filters.append("density_q_value <= volume_q_value")
+
+    if signal == "volume":
+        filters.append("volume_q_value <= density_q_value")
+    elif signal == "density":
+        filters.append("density_q_value <= volume_q_value")
 
     where_clause = " AND ".join(filters)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, granularity, quoted_uri, quoted_author_did,
        bucket_start, total_shares, unique_sharers, sharer_density,
@@ -66,7 +74,7 @@ def _build_quote_overdispersion_results_query(
 FROM default.quote_overdispersion_results
 WHERE {where_clause}
 ORDER BY run_timestamp DESC, LEAST(volume_q_value, density_q_value) ASC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 def _build_quote_overdispersion_trend_query(
@@ -75,6 +83,8 @@ def _build_quote_overdispersion_trend_query(
     limit: int = 500,
 ) -> str:
     safe_uri = sanitize_at_uri(quoted_uri)
+    safe_days = validate_days(days)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, granularity, quoted_uri, quoted_author_did,
        bucket_start, total_shares, unique_sharers, sharer_density,
@@ -85,9 +95,9 @@ def _build_quote_overdispersion_trend_query(
        sample_dids
 FROM default.quote_overdispersion_results
 WHERE quoted_uri = '{safe_uri}'
-  AND run_timestamp >= today() - INTERVAL {int(days)} DAY
+  AND run_timestamp >= today() - INTERVAL {safe_days} DAY
 ORDER BY run_timestamp ASC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 @mcp.tool()

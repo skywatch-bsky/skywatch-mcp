@@ -3,7 +3,13 @@
 import json
 
 from skywatch_mcp.lib.clickhouse_client import get_client
-from skywatch_mcp.lib.sanitizers import sanitize_date, sanitize_hostname
+from skywatch_mcp.lib.sanitizers import (
+    sanitize_date,
+    sanitize_hostname,
+    validate_days,
+    validate_limit,
+    validate_q_value,
+)
 from skywatch_mcp.server import mcp
 
 _VALID_GRANULARITIES = {"daily", "hourly"}
@@ -37,12 +43,14 @@ def _build_signup_anomalies_query(
         filters.append("toDate(run_timestamp) = today()")
 
     if min_q_value is not None:
-        filters.append(f"q_value <= {float(min_q_value)}")
+        safe_q = validate_q_value(min_q_value)
+        filters.append(f"q_value <= {safe_q}")
 
     if only_anomalies:
         filters.append("is_anomaly = 1")
 
     where_clause = " AND ".join(filters)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, granularity, pds_host,
        observed_count, distinct_accounts, expected_lambda,
@@ -52,7 +60,7 @@ def _build_signup_anomalies_query(
 FROM default.pds_signup_anomalies
 WHERE {where_clause}
 ORDER BY run_timestamp DESC, q_value ASC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 def _build_signup_anomaly_trend_query(
@@ -61,6 +69,8 @@ def _build_signup_anomaly_trend_query(
     limit: int = 500,
 ) -> str:
     safe_host = sanitize_hostname(pds_host)
+    safe_days = validate_days(days)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, granularity, pds_host,
        observed_count, distinct_accounts, expected_lambda,
@@ -69,9 +79,9 @@ def _build_signup_anomaly_trend_query(
        rolling_mean, rolling_variance, dispersion_index
 FROM default.pds_signup_anomalies
 WHERE pds_host = '{safe_host}'
-  AND run_timestamp >= today() - INTERVAL {int(days)} DAY
+  AND run_timestamp >= today() - INTERVAL {safe_days} DAY
 ORDER BY run_timestamp ASC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 @mcp.tool()

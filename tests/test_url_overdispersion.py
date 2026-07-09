@@ -80,14 +80,15 @@ class TestBuildUrlOverdispersionResultsQuery:
 
         assert "density_q_value <= volume_q_value" in query
 
-    def test_signal_with_only_anomalies_false_does_not_apply(self):
+    def test_signal_applies_independently_of_only_anomalies(self):
         from skywatch_mcp.tools.url_overdispersion import _build_url_overdispersion_results_query
 
         query = _build_url_overdispersion_results_query(
             signal="volume", only_anomalies=False, limit=50
         )
 
-        assert "volume_q_value <= density_q_value" not in query
+        assert "volume_q_value <= density_q_value" in query
+        assert "is_anomaly = 1" not in query
 
     def test_invalid_signal_raises(self):
         from skywatch_mcp.tools.url_overdispersion import _build_url_overdispersion_results_query
@@ -178,6 +179,18 @@ class TestBuildUrlOverdispersionTrendQuery:
         query = _build_url_overdispersion_trend_query(domain="example.com'; DROP--", days=14, limit=500)
 
         assert "example.com';" not in query
+
+    def test_negative_limit_raises(self):
+        from skywatch_mcp.tools.url_overdispersion import _build_url_overdispersion_results_query
+
+        with pytest.raises(ValueError):
+            _build_url_overdispersion_results_query(limit=0)
+
+    def test_negative_days_raises(self):
+        from skywatch_mcp.tools.url_overdispersion import _build_url_overdispersion_trend_query
+
+        with pytest.raises(ValueError):
+            _build_url_overdispersion_trend_query(domain="example.com", days=-1)
 
 
 class TestUrlOverdispersionResultsTool:

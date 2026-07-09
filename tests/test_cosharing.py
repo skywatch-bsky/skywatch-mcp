@@ -97,8 +97,7 @@ class TestBuildClustersQuery:
 
         query = _build_clusters_query(did="did:plc:TEST!@#", limit=20)
 
-        assert "m.did = 'did:plc:'" in query
-        assert "TEST" not in query
+        assert "m.did = 'did:plc:TEST'" in query
         assert "!@#" not in query
 
     def test_build_clusters_query_respects_limit(self):
@@ -187,8 +186,7 @@ class TestBuildPairsQuery:
 
         query = _build_pairs_query(did="did:plc:TEST!@#", limit=50)
 
-        assert "account_a = 'did:plc:'" in query
-        assert "TEST" not in query
+        assert "account_a = 'did:plc:TEST'" in query
         assert "!@#" not in query
 
     def test_build_pairs_query_respects_limit(self):
@@ -446,8 +444,7 @@ class TestCosharingPairsToolAC1_9:
 
             call_args = mock_client.query_trusted.call_args
             query = call_args[0][0]
-            assert "account_a = 'did:plc:'" in query
-            assert "TEST" not in query
+            assert "account_a = 'did:plc:TEST'" in query
             assert "!@#" not in query
 
     @pytest.mark.asyncio
@@ -717,8 +714,7 @@ class TestBuildQuoteClustersQuery:
 
         query = _build_quote_clusters_query(did="did:plc:TEST!@#", limit=20)
 
-        assert "m.did = 'did:plc:'" in query
-        assert "TEST" not in query
+        assert "m.did = 'did:plc:TEST'" in query
         assert "!@#" not in query
 
     def test_build_quote_clusters_query_uses_uris_not_urls(self):
@@ -807,8 +803,7 @@ class TestBuildQuotePairsQuery:
 
         query = _build_quote_pairs_query(did="did:plc:TEST!@#", limit=50)
 
-        assert "account_a = 'did:plc:'" in query
-        assert "TEST" not in query
+        assert "account_a = 'did:plc:TEST'" in query
 
 
 class TestBuildQuoteEvolutionQuery:

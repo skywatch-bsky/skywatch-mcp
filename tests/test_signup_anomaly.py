@@ -171,6 +171,30 @@ class TestBuildSignupAnomalyTrendQuery:
 
         assert "pds.example.com';" not in query
 
+    def test_negative_limit_raises(self):
+        from skywatch_mcp.tools.signup_anomaly import _build_signup_anomalies_query
+
+        with pytest.raises(ValueError):
+            _build_signup_anomalies_query(limit=-1)
+
+    def test_negative_days_raises(self):
+        from skywatch_mcp.tools.signup_anomaly import _build_signup_anomaly_trend_query
+
+        with pytest.raises(ValueError):
+            _build_signup_anomaly_trend_query(pds_host="pds.example.com", days=0)
+
+    def test_nan_q_value_raises(self):
+        from skywatch_mcp.tools.signup_anomaly import _build_signup_anomalies_query
+
+        with pytest.raises(ValueError):
+            _build_signup_anomalies_query(min_q_value=float("nan"))
+
+    def test_impossible_date_raises(self):
+        from skywatch_mcp.tools.signup_anomaly import _build_signup_anomalies_query
+
+        with pytest.raises(ValueError):
+            _build_signup_anomalies_query(date="2026-13-99")
+
 
 class TestSignupAnomaliesTool:
     """Test signup_anomalies tool"""

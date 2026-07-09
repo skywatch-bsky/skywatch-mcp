@@ -179,6 +179,22 @@ class TestBuildQuoteOverdispersionTrendQuery:
 
         assert "ORDER BY run_timestamp ASC" in query
 
+    def test_signal_applies_independently_of_only_anomalies(self):
+        from skywatch_mcp.tools.quote_overdispersion import _build_quote_overdispersion_results_query
+
+        query = _build_quote_overdispersion_results_query(
+            signal="density", only_anomalies=False, limit=50
+        )
+
+        assert "density_q_value <= volume_q_value" in query
+        assert "is_anomaly = 1" not in query
+
+    def test_negative_limit_raises(self):
+        from skywatch_mcp.tools.quote_overdispersion import _build_quote_overdispersion_results_query
+
+        with pytest.raises(ValueError):
+            _build_quote_overdispersion_results_query(limit=0)
+
 
 class TestQuoteOverdispersionResultsTool:
     """Test quote_overdispersion_results tool"""

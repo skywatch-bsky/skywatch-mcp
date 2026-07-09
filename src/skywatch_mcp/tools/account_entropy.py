@@ -3,7 +3,12 @@
 import json
 
 from skywatch_mcp.lib.clickhouse_client import get_client
-from skywatch_mcp.lib.sanitizers import sanitize_date, sanitize_did
+from skywatch_mcp.lib.sanitizers import (
+    sanitize_date,
+    sanitize_did,
+    validate_days,
+    validate_limit,
+)
 from skywatch_mcp.server import mcp
 
 
@@ -29,6 +34,7 @@ def _build_account_entropy_results_query(
         filters.append("is_bot_like = 1")
 
     where_clause = " AND ".join(filters)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, user_id, window_start, window_end,
        post_count, hourly_entropy, interval_entropy,
@@ -39,7 +45,7 @@ def _build_account_entropy_results_query(
 FROM default.account_entropy_results
 WHERE {where_clause}
 ORDER BY run_timestamp DESC, hourly_entropy_norm DESC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 def _build_account_entropy_trend_query(
@@ -48,6 +54,8 @@ def _build_account_entropy_trend_query(
     limit: int = 500,
 ) -> str:
     safe_did = sanitize_did(user_id)
+    safe_days = validate_days(days)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_timestamp, user_id, window_start, window_end,
        post_count, hourly_entropy, interval_entropy,
@@ -57,9 +65,9 @@ def _build_account_entropy_trend_query(
        sample_rkeys
 FROM default.account_entropy_results
 WHERE user_id = '{safe_did}'
-  AND run_timestamp >= today() - INTERVAL {int(days)} DAY
+  AND run_timestamp >= today() - INTERVAL {safe_days} DAY
 ORDER BY run_timestamp ASC
-LIMIT {int(limit)}"""
+LIMIT {safe_limit}"""
 
 
 @mcp.tool()
