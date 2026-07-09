@@ -7,15 +7,16 @@ class TestServerToolRegistration:
 
     @pytest.mark.asyncio
     async def test_all_tools_registered(self) -> None:
-        """Test AC1.21: Server has exactly 20 tools registered.
+        """Test that server has exactly 32 tools registered.
 
-        Note: Plan said 21 but actual count is 20 (2 ClickHouse, 1 domain,
-        1 IP, 1 URL, 1 WHOIS, 1 content, 3 cosharing, 10 ozone).
+        2 ClickHouse, 1 domain, 1 IP, 1 URL, 1 WHOIS, 1 content,
+        7 cosharing, 10 ozone, 2 signup_anomaly, 2 url_overdispersion,
+        2 quote_overdispersion, 2 account_entropy.
         """
         tools = await mcp.list_tools()
         tool_names = {tool.name for tool in tools}
 
-        assert len(tools) == 20, f"Expected 20 tools, got {len(tools)}"
+        assert len(tools) == 32, f"Expected 32 tools, got {len(tools)}"
 
         expected_tools = {
             "clickhouse_query",
@@ -28,6 +29,18 @@ class TestServerToolRegistration:
             "cosharing_clusters",
             "cosharing_pairs",
             "cosharing_evolution",
+            "cosharing_runs",
+            "quote_cosharing_clusters",
+            "quote_cosharing_pairs",
+            "quote_cosharing_evolution",
+            "signup_anomalies",
+            "signup_anomaly_trend",
+            "url_overdispersion_results",
+            "url_overdispersion_trend",
+            "quote_overdispersion_results",
+            "quote_overdispersion_trend",
+            "account_entropy_results",
+            "account_entropy_trend",
             "ozone_label",
             "ozone_comment",
             "ozone_acknowledge",

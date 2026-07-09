@@ -7,73 +7,6 @@ from unittest.mock import AsyncMock, patch
 from skywatch_mcp.lib.clickhouse_client import QueryResult
 
 
-class TestSanitizationFunctions:
-    """Test sanitization functions for DID and cluster_id"""
-
-    def test_sanitize_did_should_preserve_valid_characters(self):
-        """_sanitize_did should keep lowercase, digits, and allowed punctuation"""
-        from skywatch_mcp.tools.cosharing import _sanitize_did
-
-        result = _sanitize_did("did:plc:abc123xyz")
-        assert result == "did:plc:abc123xyz"
-
-    def test_sanitize_did_should_strip_invalid_characters(self):
-        """_sanitize_did should remove uppercase, special chars, spaces"""
-        from skywatch_mcp.tools.cosharing import _sanitize_did
-
-        result = _sanitize_did("did:plc:ABC123!@# test")
-        assert result == "did:plc:123test"
-
-    def test_sanitize_did_should_preserve_dots_and_colons(self):
-        """_sanitize_did should keep dots and colons which are valid in DIDs"""
-        from skywatch_mcp.tools.cosharing import _sanitize_did
-
-        result = _sanitize_did("did:key:z6mkhagvot5rgts")
-        assert result == "did:key:z6mkhagvot5rgts"
-
-    def test_sanitize_cluster_id_should_preserve_valid_characters(self):
-        """_sanitize_cluster_id should keep lowercase, digits, and hyphens"""
-        from skywatch_mcp.tools.cosharing import _sanitize_cluster_id
-
-        result = _sanitize_cluster_id("2024-01-15-0042")
-        assert result == "2024-01-15-0042"
-
-    def test_sanitize_cluster_id_should_strip_invalid_characters(self):
-        """_sanitize_cluster_id should remove uppercase, special chars, spaces"""
-        from skywatch_mcp.tools.cosharing import _sanitize_cluster_id
-
-        result = _sanitize_cluster_id("2024-01-15-0042 #HACK!")
-        assert result == "2024-01-15-0042"
-
-    def test_sanitize_date_should_accept_valid_format(self):
-        """_sanitize_date should return date string in YYYY-MM-DD format"""
-        from skywatch_mcp.tools.cosharing import _sanitize_date
-
-        result = _sanitize_date("2024-01-15")
-        assert result == "2024-01-15"
-
-    def test_sanitize_date_should_reject_sql_injection_attempt(self):
-        """_sanitize_date should raise ValueError on SQL injection attempt"""
-        from skywatch_mcp.tools.cosharing import _sanitize_date
-
-        with pytest.raises(ValueError):
-            _sanitize_date("2024-01-15'; DROP TABLE")
-
-    def test_sanitize_date_should_reject_invalid_format(self):
-        """_sanitize_date should raise ValueError on non-YYYY-MM-DD format"""
-        from skywatch_mcp.tools.cosharing import _sanitize_date
-
-        with pytest.raises(ValueError):
-            _sanitize_date("not-a-date")
-
-    def test_sanitize_date_should_reject_empty_string(self):
-        """_sanitize_date should raise ValueError on empty string"""
-        from skywatch_mcp.tools.cosharing import _sanitize_date
-
-        with pytest.raises(ValueError):
-            _sanitize_date("")
-
-
 class TestBuildClustersQuery:
     """Test SQL query building for cosharing_clusters"""
 
@@ -688,17 +621,479 @@ class TestCosharingEvolutionToolAC1_10:
                 await cosharing_evolution(cluster_id="2024-01-15-0042", limit=30)
 
 
+class TestBuildCosharingRunsQuery:
+    """Test SQL query building for cosharing_runs"""
+
+    def test_build_cosharing_runs_query_default_uses_interval(self):
+        from skywatch_mcp.tools.cosharing import _build_cosharing_runs_query
+
+        query = _build_cosharing_runs_query(limit=14)
+
+        assert "FROM url_cosharing_runs" in query
+        assert "today() - INTERVAL 14 DAY" in query
+        assert "ORDER BY run_date DESC" in query
+        assert "LIMIT 14" in query
+
+    def test_build_cosharing_runs_query_with_date_uses_exact_date(self):
+        from skywatch_mcp.tools.cosharing import _build_cosharing_runs_query
+
+        query = _build_cosharing_runs_query(date="2024-01-15", limit=14)
+
+        assert "run_date = '2024-01-15'" in query
+        assert "INTERVAL" not in query
+
+    def test_build_cosharing_runs_query_respects_limit(self):
+        from skywatch_mcp.tools.cosharing import _build_cosharing_runs_query
+
+        query = _build_cosharing_runs_query(limit=30)
+
+        assert "LIMIT 30" in query
+        assert "INTERVAL 30 DAY" in query
+
+    def test_build_cosharing_runs_query_includes_knee_and_guardrail(self):
+        from skywatch_mcp.tools.cosharing import _build_cosharing_runs_query
+
+        query = _build_cosharing_runs_query(limit=14)
+
+        assert "knee_found" in query
+        assert "guardrail_triggered" in query
+        assert "flagged_accounts" in query
+        assert "cluster_count" in query
+
+
+class TestBuildQuoteClustersQuery:
+    """Test SQL query building for quote_cosharing_clusters"""
+
+    def test_build_quote_clusters_query_by_did_should_include_join(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:test", limit=20)
+
+        assert "quote_cosharing_membership m" in query
+        assert "quote_cosharing_clusters c" in query
+        assert "JOIN" in query
+        assert "m.did = 'did:plc:test'" in query
+
+    def test_build_quote_clusters_query_by_did_without_date_uses_yesterday(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:test", limit=20)
+
+        assert "AND m.run_date = yesterday()" in query
+
+    def test_build_quote_clusters_query_by_did_with_date_uses_provided_date(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:test", date="2024-01-15", limit=20)
+
+        assert "AND m.run_date = '2024-01-15'" in query
+
+    def test_build_quote_clusters_query_by_cluster_id_should_not_join(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(cluster_id="2024-01-15-0042", limit=20)
+
+        assert "FROM quote_cosharing_clusters" in query
+        assert "JOIN" not in query
+        assert "WHERE cluster_id = '2024-01-15-0042'" in query
+
+    def test_build_quote_clusters_query_without_filters_uses_yesterday(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(limit=20)
+
+        assert "WHERE run_date = yesterday()" in query
+        assert "FROM quote_cosharing_clusters" in query
+
+    def test_build_quote_clusters_query_with_min_members_adds_filter(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(min_members=5, limit=20)
+
+        assert "AND member_count >= 5" in query
+
+    def test_build_quote_clusters_query_sanitizes_did(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:TEST!@#", limit=20)
+
+        assert "m.did = 'did:plc:'" in query
+        assert "TEST" not in query
+        assert "!@#" not in query
+
+    def test_build_quote_clusters_query_uses_uris_not_urls(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:test", limit=20)
+
+        assert "unique_uris" in query
+        assert "unique_urls" not in query
+        assert "sample_uris" in query
+        assert "sample_urls" not in query
+
+    def test_build_quote_clusters_query_has_no_density_columns(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(did="did:plc:test", limit=20)
+
+        assert "mean_edge_similarity" not in query
+        assert "subgraph_density" not in query
+
+    def test_build_quote_clusters_query_default_path_no_density_columns(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(limit=20)
+
+        assert "mean_edge_similarity" not in query
+        assert "subgraph_density" not in query
+
+    def test_build_quote_clusters_query_cluster_id_path_uses_uris_not_urls(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        query = _build_quote_clusters_query(cluster_id="2024-01-15-0042", limit=20)
+
+        assert "unique_uris" in query
+        assert "unique_urls" not in query
+
+
+class TestBuildQuotePairsQuery:
+    """Test SQL query building for quote_cosharing_pairs"""
+
+    def test_build_quote_pairs_query_should_check_both_accounts(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", limit=50)
+
+        assert "account_a = 'did:plc:test' OR account_b = 'did:plc:test'" in query
+
+    def test_build_quote_pairs_query_without_date_uses_yesterday(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", limit=50)
+
+        assert "AND date = yesterday()" in query
+
+    def test_build_quote_pairs_query_with_date_uses_provided_date(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", date="2024-01-15", limit=50)
+
+        assert "AND date = '2024-01-15'" in query
+
+    def test_build_quote_pairs_query_uses_shared_uris(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", limit=50)
+
+        assert "shared_uris" in query
+        assert "shared_urls" not in query
+
+    def test_build_quote_pairs_query_from_quote_table(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", limit=50)
+
+        assert "FROM quote_cosharing_pairs" in query
+
+    def test_build_quote_pairs_query_with_min_weight_adds_filter(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:test", min_weight=5, limit=50)
+
+        assert "AND weight >= 5" in query
+
+    def test_build_quote_pairs_query_sanitizes_did(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        query = _build_quote_pairs_query(did="did:plc:TEST!@#", limit=50)
+
+        assert "account_a = 'did:plc:'" in query
+        assert "TEST" not in query
+
+
+class TestBuildQuoteEvolutionQuery:
+    """Test SQL query building for quote_cosharing_evolution"""
+
+    def test_build_quote_evolution_query_should_match_cluster_id(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "WHERE cluster_id = '2024-01-15-0042'" in query
+
+    def test_build_quote_evolution_query_should_match_predecessors(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "OR has(predecessor_cluster_ids, '2024-01-15-0042')" in query
+
+    def test_build_quote_evolution_query_uses_uris_not_urls(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "unique_uris" in query
+        assert "unique_urls" not in query
+
+    def test_build_quote_evolution_query_has_no_density_columns(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "mean_edge_similarity" not in query
+        assert "subgraph_density" not in query
+
+    def test_build_quote_evolution_query_uses_quote_table(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=30)
+
+        assert "FROM quote_cosharing_clusters" in query
+
+    def test_build_quote_evolution_query_sanitizes_cluster_id(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        query = _build_quote_evolution_query(cluster_id="2024-01-15-0042!@#", limit=30)
+
+        assert "cluster_id = '2024-01-15-0042'" in query
+        assert "!@#" not in query
+
+
+class TestCosharingRunsTool:
+    """Test cosharing_runs tool"""
+
+    @pytest.mark.asyncio
+    async def test_cosharing_runs_should_return_run_metadata(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_result = QueryResult(
+                columns=[
+                    {"name": "run_date", "type": "Date"},
+                    {"name": "cluster_count", "type": "UInt32"},
+                ],
+                rows=[
+                    {"run_date": "2024-01-15", "cluster_count": 5},
+                    {"run_date": "2024-01-14", "cluster_count": 0},
+                ],
+            )
+            mock_client.query_trusted.return_value = mock_result
+
+            from skywatch_mcp.tools.cosharing import cosharing_runs
+
+            result = await cosharing_runs(limit=14)
+
+            assert isinstance(result, str)
+            data = json.loads(result)
+            assert "query" in data
+            assert "rows" in data
+            assert "count" in data
+            assert data["count"] == 2
+            mock_client.query_trusted.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cosharing_runs_default_query_uses_interval(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.return_value = QueryResult(columns=[], rows=[])
+
+            from skywatch_mcp.tools.cosharing import cosharing_runs
+
+            await cosharing_runs(limit=14)
+
+            call_args = mock_client.query_trusted.call_args
+            query = call_args[0][0]
+            assert "today() - INTERVAL 14 DAY" in query
+
+    @pytest.mark.asyncio
+    async def test_cosharing_runs_should_raise_on_error(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.side_effect = Exception("Query failed")
+
+            from skywatch_mcp.tools.cosharing import cosharing_runs
+
+            with pytest.raises(ValueError):
+                await cosharing_runs(limit=14)
+
+
+class TestQuoteCosharingClustersTool:
+    """Test quote_cosharing_clusters tool"""
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_clusters_should_return_metadata(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_result = QueryResult(
+                columns=[
+                    {"name": "cluster_id", "type": "String"},
+                    {"name": "member_count", "type": "UInt32"},
+                ],
+                rows=[
+                    {"cluster_id": "2024-01-15-0042", "member_count": 5},
+                ],
+            )
+            mock_client.query_trusted.return_value = mock_result
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_clusters
+
+            result = await quote_cosharing_clusters(limit=20)
+
+            assert isinstance(result, str)
+            data = json.loads(result)
+            assert "query" in data
+            assert "rows" in data
+            assert "count" in data
+            assert data["count"] == 1
+            mock_client.query_trusted.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_clusters_with_did_filter(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.return_value = QueryResult(columns=[], rows=[])
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_clusters
+
+            await quote_cosharing_clusters(did="did:plc:test", limit=20)
+
+            call_args = mock_client.query_trusted.call_args
+            query = call_args[0][0]
+            assert "m.did = 'did:plc:test'" in query
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_clusters_should_raise_on_error(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.side_effect = Exception("Connection failed")
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_clusters
+
+            with pytest.raises(ValueError):
+                await quote_cosharing_clusters(limit=20)
+
+
+class TestQuoteCosharingPairsTool:
+    """Test quote_cosharing_pairs tool"""
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_pairs_should_return_pairs(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_result = QueryResult(
+                columns=[
+                    {"name": "account_a", "type": "String"},
+                    {"name": "account_b", "type": "String"},
+                    {"name": "weight", "type": "UInt32"},
+                ],
+                rows=[
+                    {"account_a": "did:plc:test", "account_b": "did:plc:other", "weight": 10},
+                ],
+            )
+            mock_client.query_trusted.return_value = mock_result
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_pairs
+
+            result = await quote_cosharing_pairs(did="did:plc:test", limit=50)
+
+            assert isinstance(result, str)
+            data = json.loads(result)
+            assert "query" in data
+            assert "rows" in data
+            assert "count" in data
+            assert data["count"] == 1
+            mock_client.query_trusted.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_pairs_should_raise_on_error(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.side_effect = Exception("Query failed")
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_pairs
+
+            with pytest.raises(ValueError):
+                await quote_cosharing_pairs(did="did:plc:test", limit=50)
+
+
+class TestQuoteCosharingEvolutionTool:
+    """Test quote_cosharing_evolution tool"""
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_evolution_should_trace_timeline(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_result = QueryResult(
+                columns=[
+                    {"name": "run_date", "type": "Date"},
+                    {"name": "evolution_type", "type": "String"},
+                ],
+                rows=[
+                    {"run_date": "2024-01-14", "evolution_type": "born"},
+                    {"run_date": "2024-01-15", "evolution_type": "continued"},
+                ],
+            )
+            mock_client.query_trusted.return_value = mock_result
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_evolution
+
+            result = await quote_cosharing_evolution(cluster_id="2024-01-15-0042", limit=30)
+
+            assert isinstance(result, str)
+            data = json.loads(result)
+            assert "query" in data
+            assert "rows" in data
+            assert "count" in data
+            assert data["count"] == 2
+            mock_client.query_trusted.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_quote_cosharing_evolution_should_raise_on_error(self):
+        with patch("skywatch_mcp.tools.cosharing.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_get_client.return_value = mock_client
+
+            mock_client.query_trusted.side_effect = Exception("Query failed")
+
+            from skywatch_mcp.tools.cosharing import quote_cosharing_evolution
+
+            with pytest.raises(ValueError):
+                await quote_cosharing_evolution(cluster_id="2024-01-15-0042", limit=30)
+
+
 class TestServerIntegration:
     """Test MCP server integration for cosharing tools"""
 
     def test_server_should_register_cosharing_tools(self):
-        """Server should register all three cosharing tools"""
+        """Server should register all seven cosharing-family tools"""
         from skywatch_mcp.server import mcp
 
         tool_names = [t.name for t in mcp._tool_manager._tools.values()]
         assert "cosharing_clusters" in tool_names
         assert "cosharing_pairs" in tool_names
         assert "cosharing_evolution" in tool_names
+        assert "cosharing_runs" in tool_names
+        assert "quote_cosharing_clusters" in tool_names
+        assert "quote_cosharing_pairs" in tool_names
+        assert "quote_cosharing_evolution" in tool_names
 
     def test_cosharing_tools_should_have_descriptions(self):
         """Cosharing tools should have descriptions"""
@@ -708,3 +1103,7 @@ class TestServerIntegration:
         assert tools_by_name["cosharing_clusters"].description
         assert tools_by_name["cosharing_pairs"].description
         assert tools_by_name["cosharing_evolution"].description
+        assert tools_by_name["cosharing_runs"].description
+        assert tools_by_name["quote_cosharing_clusters"].description
+        assert tools_by_name["quote_cosharing_pairs"].description
+        assert tools_by_name["quote_cosharing_evolution"].description
