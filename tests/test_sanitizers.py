@@ -173,3 +173,33 @@ class TestValidateQValue:
     def test_inf_q_value_raises(self):
         with pytest.raises(ValueError):
             validate_q_value(float("inf"))
+
+
+class TestValidateThreshold:
+    def test_valid_threshold(self):
+        from skywatch_mcp.lib.sanitizers import validate_threshold
+
+        assert validate_threshold(5) == 5
+
+    def test_threshold_zero(self):
+        from skywatch_mcp.lib.sanitizers import validate_threshold
+
+        assert validate_threshold(0) == 0
+
+    def test_negative_threshold_raises(self):
+        from skywatch_mcp.lib.sanitizers import validate_threshold
+
+        with pytest.raises(ValueError):
+            validate_threshold(-1)
+
+    def test_float_threshold_raises(self):
+        from skywatch_mcp.lib.sanitizers import validate_threshold
+
+        with pytest.raises(ValueError):
+            validate_threshold(1.9)  # type: ignore[arg-type]
+
+    def test_bool_threshold_raises(self):
+        from skywatch_mcp.lib.sanitizers import validate_threshold
+
+        with pytest.raises(ValueError):
+            validate_threshold(True)  # type: ignore[arg-type]

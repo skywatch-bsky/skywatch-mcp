@@ -8,6 +8,7 @@ from skywatch_mcp.lib.sanitizers import (
     sanitize_date,
     sanitize_did,
     validate_limit,
+    validate_threshold,
 )
 from skywatch_mcp.server import mcp
 
@@ -53,9 +54,8 @@ LIMIT {safe_limit}"""
     date_filter = f"run_date = '{sanitize_date(date)}'" if date else "run_date = yesterday()"
     member_filter = ""
     if min_members is not None:
-        if min_members < 0:
-            raise ValueError(f"min_members must be >= 0, got {min_members}")
-        member_filter = f"AND member_count >= {int(min_members)}"
+        safe_members = validate_threshold(min_members, "min_members")
+        member_filter = f"AND member_count >= {safe_members}"
     return f"""SELECT cluster_id, run_date, member_count, total_edges,
        total_weight, mean_edge_similarity, subgraph_density,
        unique_urls, temporal_spread_hours,
@@ -79,9 +79,8 @@ def _build_pairs_query(
     date_filter = f"AND date = '{sanitize_date(date)}'" if date else "AND date = yesterday()"
     weight_filter = ""
     if min_weight is not None:
-        if min_weight < 0:
-            raise ValueError(f"min_weight must be >= 0, got {min_weight}")
-        weight_filter = f"AND weight >= {int(min_weight)}"
+        safe_weight = validate_threshold(min_weight, "min_weight")
+        weight_filter = f"AND weight >= {safe_weight}"
 
     return f"""SELECT date, account_a, account_b, weight, shared_urls
 FROM url_cosharing_pairs
@@ -230,9 +229,8 @@ LIMIT {safe_limit}"""
     date_filter = f"run_date = '{sanitize_date(date)}'" if date else "run_date = yesterday()"
     member_filter = ""
     if min_members is not None:
-        if min_members < 0:
-            raise ValueError(f"min_members must be >= 0, got {min_members}")
-        member_filter = f"AND member_count >= {int(min_members)}"
+        safe_members = validate_threshold(min_members, "min_members")
+        member_filter = f"AND member_count >= {safe_members}"
     return f"""SELECT cluster_id, run_date, member_count, total_edges,
        total_weight, unique_uris, temporal_spread_hours,
        mean_posting_interval_seconds, evolution_type,
@@ -255,9 +253,8 @@ def _build_quote_pairs_query(
     date_filter = f"AND date = '{sanitize_date(date)}'" if date else "AND date = yesterday()"
     weight_filter = ""
     if min_weight is not None:
-        if min_weight < 0:
-            raise ValueError(f"min_weight must be >= 0, got {min_weight}")
-        weight_filter = f"AND weight >= {int(min_weight)}"
+        safe_weight = validate_threshold(min_weight, "min_weight")
+        weight_filter = f"AND weight >= {safe_weight}"
 
     return f"""SELECT date, account_a, account_b, weight, shared_uris
 FROM quote_cosharing_pairs

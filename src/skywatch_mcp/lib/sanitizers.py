@@ -93,3 +93,15 @@ def validate_q_value(q_value: float) -> float:
     if v < 0.0 or v > 1.0:
         raise ValueError(f"q_value must be in [0.0, 1.0], got {q_value}")
     return v
+
+
+def validate_threshold(value: int, name: str = "threshold") -> int:
+    """Validate that a numeric threshold is a non-negative integer.
+
+    Rejects booleans and non-integral values (floats, strings).
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer, got {type(value).__name__}: {value}")
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0, got {value}")
+    return value
