@@ -657,6 +657,12 @@ class TestBuildCosharingRunsQuery:
         assert "flagged_accounts" in query
         assert "cluster_count" in query
 
+    def test_build_cosharing_runs_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_cosharing_runs_query
+
+        with pytest.raises(ValueError):
+            _build_cosharing_runs_query(limit=0)
+
 
 class TestBuildQuoteClustersQuery:
     """Test SQL query building for quote_cosharing_clusters"""
@@ -751,6 +757,18 @@ class TestBuildQuoteClustersQuery:
         assert "unique_uris" in query
         assert "unique_urls" not in query
 
+    def test_build_quote_clusters_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        with pytest.raises(ValueError):
+            _build_quote_clusters_query(limit=-1)
+
+    def test_build_quote_clusters_query_negative_min_members_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
+
+        with pytest.raises(ValueError):
+            _build_quote_clusters_query(min_members=-5)
+
 
 class TestBuildQuotePairsQuery:
     """Test SQL query building for quote_cosharing_pairs"""
@@ -805,6 +823,18 @@ class TestBuildQuotePairsQuery:
 
         assert "account_a = 'did:plc:TEST'" in query
 
+    def test_build_quote_pairs_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        with pytest.raises(ValueError):
+            _build_quote_pairs_query(did="did:plc:test", limit=0)
+
+    def test_build_quote_pairs_query_negative_min_weight_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
+
+        with pytest.raises(ValueError):
+            _build_quote_pairs_query(did="did:plc:test", min_weight=-1)
+
 
 class TestBuildQuoteEvolutionQuery:
     """Test SQL query building for quote_cosharing_evolution"""
@@ -853,6 +883,12 @@ class TestBuildQuoteEvolutionQuery:
 
         assert "cluster_id = '2024-01-15-0042'" in query
         assert "!@#" not in query
+
+    def test_build_quote_evolution_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_quote_evolution_query
+
+        with pytest.raises(ValueError):
+            _build_quote_evolution_query(cluster_id="2024-01-15-0042", limit=0)
 
 
 class TestCosharingRunsTool:

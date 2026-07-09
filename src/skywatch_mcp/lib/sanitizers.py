@@ -37,8 +37,12 @@ def sanitize_date(date_str: str) -> str:
 
 
 def sanitize_hostname(hostname: str) -> str:
-    """Strip characters not valid in a hostname (lowercase alnum, dot, hyphen)."""
-    return re.sub(r"[^a-z0-9.-]", "", hostname)
+    """Normalize and validate a hostname (lowercase alnum, dot, hyphen).
+
+    Lowercases before stripping so that valid mixed-case hostnames are
+    preserved as their canonical lowercase form rather than corrupted.
+    """
+    return re.sub(r"[^a-z0-9.-]", "", hostname.lower())
 
 
 def sanitize_at_uri(uri: str) -> str:

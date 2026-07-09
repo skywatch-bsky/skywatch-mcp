@@ -7,6 +7,7 @@ from skywatch_mcp.lib.sanitizers import (
     sanitize_cluster_id,
     sanitize_date,
     sanitize_did,
+    validate_limit,
 )
 from skywatch_mcp.server import mcp
 
@@ -158,6 +159,7 @@ def _build_cosharing_runs_query(
     date: str | None = None,
     limit: int = 14,
 ) -> str:
+    safe_limit = validate_limit(limit)
     if date:
         return f"""SELECT run_date, window_days, accounts_raw, accounts_eligible,
        urls_eligible, graph_edges, edge_quantile, centrality_quantile,
@@ -166,16 +168,16 @@ def _build_cosharing_runs_query(
 FROM url_cosharing_runs
 WHERE run_date = '{sanitize_date(date)}'
 ORDER BY run_date DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
     return f"""SELECT run_date, window_days, accounts_raw, accounts_eligible,
        urls_eligible, graph_edges, edge_quantile, centrality_quantile,
        min_component_density, knee_found, guardrail_triggered,
        flagged_accounts, cluster_count
 FROM url_cosharing_runs
-WHERE run_date >= today() - INTERVAL {limit} DAY
+WHERE run_date >= today() - INTERVAL {safe_limit} DAY
 ORDER BY run_date DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
 
 def _build_quote_clusters_query(
@@ -185,6 +187,7 @@ def _build_quote_clusters_query(
     min_members: int | None = None,
     limit: int = 20,
 ) -> str:
+    safe_limit = validate_limit(limit)
     if did:
         safe_did = sanitize_did(did)
         date_filter = f"AND m.run_date = '{sanitize_date(date)}'" if date else "AND m.run_date = yesterday()"
@@ -198,7 +201,7 @@ JOIN quote_cosharing_clusters c
   ON m.cluster_id = c.cluster_id AND m.run_date = c.run_date
 WHERE m.did = '{safe_did}' {date_filter}
 ORDER BY m.run_date DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
     if cluster_id:
         safe_id = sanitize_cluster_id(cluster_id)
@@ -211,10 +214,14 @@ LIMIT {limit}"""
 FROM quote_cosharing_clusters
 WHERE cluster_id = '{safe_id}' {date_filter}
 ORDER BY run_date DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
     date_filter = f"run_date = '{sanitize_date(date)}'" if date else "run_date = yesterday()"
-    member_filter = f"AND member_count >= {int(min_members)}" if min_members else ""
+    member_filter = ""
+    if min_members is not None:
+        if min_members < 0:
+            raise ValueError(f"min_members must be >= 0, got {min_members}")
+        member_filter = f"AND member_count >= {int(min_members)}"
     return f"""SELECT cluster_id, run_date, member_count, total_edges,
        total_weight, unique_uris, temporal_spread_hours,
        mean_posting_interval_seconds, evolution_type,
@@ -223,7 +230,7 @@ LIMIT {limit}"""
 FROM quote_cosharing_clusters
 WHERE {date_filter} {member_filter}
 ORDER BY member_count DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
 
 def _build_quote_pairs_query(
@@ -233,19 +240,25 @@ def _build_quote_pairs_query(
     limit: int = 50,
 ) -> str:
     safe_did = sanitize_did(did)
+    safe_limit = validate_limit(limit)
     date_filter = f"AND date = '{sanitize_date(date)}'" if date else "AND date = yesterday()"
-    weight_filter = f"AND weight >= {int(min_weight)}" if min_weight else ""
+    weight_filter = ""
+    if min_weight is not None:
+        if min_weight < 0:
+            raise ValueError(f"min_weight must be >= 0, got {min_weight}")
+        weight_filter = f"AND weight >= {int(min_weight)}"
 
     return f"""SELECT date, account_a, account_b, weight, shared_uris
 FROM quote_cosharing_pairs
 WHERE (account_a = '{safe_did}' OR account_b = '{safe_did}')
   {date_filter} {weight_filter}
 ORDER BY weight DESC
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
 
 def _build_quote_evolution_query(cluster_id: str, limit: int = 30) -> str:
     safe_id = sanitize_cluster_id(cluster_id)
+    safe_limit = validate_limit(limit)
 
     return f"""SELECT run_date, cluster_id, member_count, total_edges,
        total_weight, unique_uris, evolution_type,
@@ -255,7 +268,7 @@ FROM quote_cosharing_clusters
 WHERE cluster_id = '{safe_id}'
    OR has(predecessor_cluster_ids, '{safe_id}')
 ORDER BY run_date
-LIMIT {limit}"""
+LIMIT {safe_limit}"""
 
 
 @mcp.tool()

@@ -78,6 +78,10 @@ class TestSanitizeHostname:
         result = sanitize_hostname("my-pds-host.example.org")
         assert result == "my-pds-host.example.org"
 
+    def test_sanitize_hostname_lowercases_mixed_case(self):
+        result = sanitize_hostname("PDS.Example.COM")
+        assert result == "pds.example.com"
+
 
 class TestSanitizeAtUri:
     def test_sanitize_at_uri_should_preserve_valid_characters(self):
