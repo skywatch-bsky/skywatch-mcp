@@ -57,27 +57,29 @@ def sanitize_at_uri(uri: str) -> str:
 def validate_limit(limit: int, maximum: int = 10000) -> int:
     """Validate that ``limit`` is a positive integer within ``[1, maximum]``.
 
-    Raises ValueError on out-of-range or non-finite values.
+    Raises ValueError on out-of-range, non-finite, or non-integral values.
     """
-    n = int(limit)
-    if n < 1:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError(f"limit must be an integer, got {type(limit).__name__}: {limit}")
+    if limit < 1:
         raise ValueError(f"limit must be >= 1, got {limit}")
-    if n > maximum:
+    if limit > maximum:
         raise ValueError(f"limit must be <= {maximum}, got {limit}")
-    return n
+    return limit
 
 
 def validate_days(days: int, maximum: int = 365) -> int:
     """Validate that ``days`` is a positive integer within ``[1, maximum]``.
 
-    Raises ValueError on out-of-range values.
+    Raises ValueError on out-of-range or non-integral values.
     """
-    n = int(days)
-    if n < 1:
+    if isinstance(days, bool) or not isinstance(days, int):
+        raise ValueError(f"days must be an integer, got {type(days).__name__}: {days}")
+    if days < 1:
         raise ValueError(f"days must be >= 1, got {days}")
-    if n > maximum:
+    if days > maximum:
         raise ValueError(f"days must be <= {maximum}, got {days}")
-    return n
+    return days
 
 
 def validate_q_value(q_value: float) -> float:

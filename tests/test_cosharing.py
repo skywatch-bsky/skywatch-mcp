@@ -135,6 +135,18 @@ class TestBuildClustersQuery:
         assert "mean_edge_similarity" in query
         assert "subgraph_density" in query
 
+    def test_build_clusters_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_clusters_query
+
+        with pytest.raises(ValueError):
+            _build_clusters_query(limit=0)
+
+    def test_build_clusters_query_negative_min_members_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_clusters_query
+
+        with pytest.raises(ValueError):
+            _build_clusters_query(min_members=-1)
+
 
 class TestBuildPairsQuery:
     """Test SQL query building for cosharing_pairs"""
@@ -197,6 +209,18 @@ class TestBuildPairsQuery:
 
         assert "LIMIT 100" in query
 
+    def test_build_pairs_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_pairs_query
+
+        with pytest.raises(ValueError):
+            _build_pairs_query(did="did:plc:test", limit=-1)
+
+    def test_build_pairs_query_negative_min_weight_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_pairs_query
+
+        with pytest.raises(ValueError):
+            _build_pairs_query(did="did:plc:test", min_weight=-5)
+
 
 class TestBuildEvolutionQuery:
     """Test SQL query building for cosharing_evolution"""
@@ -242,6 +266,12 @@ class TestBuildEvolutionQuery:
 
         assert "mean_edge_similarity" in query
         assert "subgraph_density" in query
+
+    def test_build_evolution_query_negative_limit_raises(self):
+        from skywatch_mcp.tools.cosharing import _build_evolution_query
+
+        with pytest.raises(ValueError):
+            _build_evolution_query(cluster_id="2024-01-15-0042", limit=0)
 
 
 class TestCosharingClustersToolAC1_8:

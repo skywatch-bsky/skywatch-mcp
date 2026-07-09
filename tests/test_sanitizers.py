@@ -115,6 +115,14 @@ class TestValidateLimit:
     def test_limit_with_custom_max(self):
         assert validate_limit(500, maximum=500) == 500
 
+    def test_float_limit_raises(self):
+        with pytest.raises(ValueError):
+            validate_limit(1.9)  # type: ignore[arg-type]
+
+    def test_bool_limit_raises(self):
+        with pytest.raises(ValueError):
+            validate_limit(True)  # type: ignore[arg-type]
+
 
 class TestValidateDays:
     def test_valid_days(self):
@@ -134,6 +142,10 @@ class TestValidateDays:
     def test_days_above_default_max_raises(self):
         with pytest.raises(ValueError):
             validate_days(366)
+
+    def test_float_days_raises(self):
+        with pytest.raises(ValueError):
+            validate_days(2.9)  # type: ignore[arg-type]
 
 
 class TestValidateQValue:

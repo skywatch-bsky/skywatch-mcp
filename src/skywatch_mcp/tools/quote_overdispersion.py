@@ -110,7 +110,7 @@ async def quote_overdispersion_results(
     only_anomalies: bool = True,
     limit: int = 50,
 ) -> str:
-    """Look up anomalous quote-post concentration on a single quoted URI, detected via negative-binomial and beta-binomial testing with BH-FDR correction. Structurally similar to URL overdispersion but targets quote-post clustering instead of URL sharing. Note: population baseline dominance (50–70%+) is expected/normal for quote posts due to their short-lived nature."""
+    """Look up anomalous quote-post concentration on a single quoted URI, detected via negative-binomial and beta-binomial testing with BH-FDR correction. Structurally similar to URL overdispersion but targets quote-post clustering instead of URL sharing. The signal parameter filters to rows where the specified signal is the dominant (lower q-value) signal — it does not independently test whether that signal is anomalous. Note: population baseline dominance (50–70%+) is expected/normal for quote posts due to their short-lived nature."""
     try:
         query = _build_quote_overdispersion_results_query(
             quoted_uri, quoted_author_did, granularity, date, signal, only_anomalies, limit

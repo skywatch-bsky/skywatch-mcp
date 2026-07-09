@@ -108,7 +108,7 @@ async def url_overdispersion_results(
     only_watchlist: bool = False,
     limit: int = 50,
 ) -> str:
-    """Look up anomalous URL/domain-sharing volume or density spikes detected via negative-binomial and beta-binomial testing with BH-FDR correction. Each row has two independent signals: volume (total shares) and density (unique sharers per share). Filter by domain, granularity, or signal type. The on_watchlist flag reflects operator-maintained domain tracking, not a model output."""
+    """Look up anomalous URL/domain-sharing volume or density spikes detected via negative-binomial and beta-binomial testing with BH-FDR correction. Each row has two independent signals: volume (total shares) and density (unique sharers per share). Filter by domain, granularity, or signal type. The signal parameter filters to rows where the specified signal is the dominant (lower q-value) signal — it does not independently test whether that signal is anomalous. The on_watchlist flag reflects operator-maintained domain tracking, not a model output."""
     try:
         query = _build_url_overdispersion_results_query(
             domain, granularity, date, signal, only_anomalies, only_watchlist, limit
