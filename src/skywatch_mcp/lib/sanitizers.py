@@ -85,8 +85,13 @@ def validate_days(days: int, maximum: int = 365) -> int:
 def validate_q_value(q_value: float) -> float:
     """Validate that ``q_value`` is a finite float in ``[0.0, 1.0]``.
 
+    Accepts int and float but rejects bool, str, and other non-numeric types.
     Raises ValueError on NaN, infinity, or out-of-range values.
     """
+    if isinstance(q_value, bool) or not isinstance(q_value, (int, float)):
+        raise ValueError(
+            f"q_value must be a number, got {type(q_value).__name__}: {q_value}"
+        )
     v = float(q_value)
     if not math.isfinite(v):
         raise ValueError(f"q_value must be finite, got {q_value}")

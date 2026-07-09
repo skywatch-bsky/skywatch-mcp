@@ -174,6 +174,18 @@ class TestValidateQValue:
         with pytest.raises(ValueError):
             validate_q_value(float("inf"))
 
+    def test_bool_q_value_raises(self):
+        with pytest.raises(ValueError):
+            validate_q_value(True)  # type: ignore[arg-type]
+
+    def test_string_q_value_raises(self):
+        with pytest.raises(ValueError):
+            validate_q_value("0.05")  # type: ignore[arg-type]
+
+    def test_int_q_value_accepted(self):
+        assert validate_q_value(0) == 0.0
+        assert validate_q_value(1) == 1.0
+
 
 class TestValidateThreshold:
     def test_valid_threshold(self):
