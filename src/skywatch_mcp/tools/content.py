@@ -12,13 +12,15 @@ def _escape_clickhouse_sql(text: str) -> str:
 
 def _build_similarity_query(escaped_text: str, threshold: float, limit: int) -> str:
     return f"""SELECT
-    did as user,
-    handle,
-    content as text,
-    ngramDistance(content, '{escaped_text}') as score,
-    created_at
+    Handle as user,
+    Handle as handle,
+    PostTextCleaned as text,
+    ngramDistance(PostTextCleaned, '{escaped_text}') as score,
+    __timestamp as created_at
   FROM default.osprey_execution_results
-  WHERE ngramDistance(content, '{escaped_text}') < {threshold}
+  WHERE PostTextCleaned IS NOT NULL
+    AND length(PostTextCleaned) > 0
+    AND ngramDistance(PostTextCleaned, '{escaped_text}') < {threshold}
   ORDER BY score ASC
   LIMIT {limit}"""
 

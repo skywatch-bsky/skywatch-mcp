@@ -45,7 +45,7 @@ class TestBuildSimilarityQuery:
         """Query should contain ngramDistance, threshold, limit"""
         query = _build_similarity_query("hello", 0.4, 20)
 
-        assert "ngramDistance(content, 'hello')" in query
+        assert "ngramDistance(PostTextCleaned, 'hello')" in query
         assert "< 0.4" in query
         assert "LIMIT 20" in query
         assert "FROM default.osprey_execution_results" in query
@@ -62,14 +62,21 @@ class TestBuildSimilarityQuery:
         assert "LIMIT 100" in query
 
     def test_should_select_required_columns(self):
-        """Query should select did, handle, content, score, created_at"""
+        """Query should select Handle, PostTextCleaned, score, __timestamp"""
         query = _build_similarity_query("test", 0.4, 20)
 
-        assert "did as user" in query
-        assert "handle" in query
-        assert "content as text" in query
-        assert "ngramDistance(content, 'test') as score" in query
-        assert "created_at" in query
+        assert "Handle as user" in query
+        assert "Handle as handle" in query
+        assert "PostTextCleaned as text" in query
+        assert "ngramDistance(PostTextCleaned, 'test') as score" in query
+        assert "__timestamp as created_at" in query
+
+    def test_should_filter_null_and_empty_text(self):
+        """Query should exclude rows with null or empty PostTextCleaned"""
+        query = _build_similarity_query("test", 0.4, 20)
+
+        assert "PostTextCleaned IS NOT NULL" in query
+        assert "length(PostTextCleaned) > 0" in query
 
 
 class TestContentSimilarityTool:
