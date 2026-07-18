@@ -184,6 +184,49 @@ class TestClickHouseClient:
             # Verify it was awaited (AsyncMock verifies this)
 
     @pytest.mark.asyncio
+    async def test_query_failure_should_discard_cached_client(self, mock_settings):
+        with patch(
+            "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+        ) as mock_get:
+            failed_client = AsyncMock()
+            failed_client.query.side_effect = RuntimeError("connection lost")
+            recovered_client = AsyncMock()
+            recovered_result = MagicMock()
+            recovered_result.column_names = ["value"]
+            recovered_result.column_types = ["UInt64"]
+            recovered_result.result_rows = [[1]]
+            recovered_client.query.return_value = recovered_result
+            mock_get.side_effect = [failed_client, recovered_client]
+
+            client = ClickHouseClient(mock_settings)
+            with pytest.raises(RuntimeError, match="connection lost"):
+                await client.query_trusted("SELECT 1")
+
+            result = await client.query_trusted("SELECT 1")
+
+            assert result.rows == [{"value": 1}]
+            assert mock_get.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_query_timeout_should_be_bounded_and_discard_cached_client(self, mock_settings):
+        timeout_context = AsyncMock()
+        timeout_context.__aenter__.side_effect = TimeoutError
+
+        with (
+            patch("skywatch_mcp.lib.clickhouse_client.asyncio.timeout", return_value=timeout_context),
+            patch(
+                "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+            ) as mock_get,
+        ):
+            client = ClickHouseClient(mock_settings)
+
+            with pytest.raises(TimeoutError, match="130 seconds"):
+                await client.query_trusted("SELECT 1")
+
+            assert client._client is None
+            mock_get.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_query_should_set_60_second_timeout(self, mock_settings):
         """query() should use 60s max_execution_time"""
         with patch(

@@ -1,5 +1,6 @@
 # pattern: Imperative Shell
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +16,8 @@ class QueryResult:
     columns: list[dict[str, str]]
     rows: list[dict[str, Any]]
 
+
+QUERY_DEADLINE_GRACE_SECONDS = 10
 
 SCHEMA_TABLES = [
     "default.osprey_execution_results",
@@ -51,11 +54,23 @@ class ClickHouseClient:
     async def _execute_query(
         self, sql: str, max_execution_time: int
     ) -> QueryResult:
-        client = await self._get_client()
-        result = await client.query(
-            query=sql,
-            settings={"max_execution_time": max_execution_time},
-        )
+        deadline = max_execution_time + QUERY_DEADLINE_GRACE_SECONDS
+        try:
+            async with asyncio.timeout(deadline):
+                client = await self._get_client()
+                result = await client.query(
+                    query=sql,
+                    settings={"max_execution_time": max_execution_time},
+                )
+        except TimeoutError as exc:
+            self._client = None
+            raise TimeoutError(
+                f"ClickHouse query timed out after {deadline} seconds"
+            ) from exc
+        except Exception:
+            self._client = None
+            raise
+
         columns = [
             {"name": name, "type": col_type}
             for name, col_type in zip(result.column_names, result.column_types, strict=True)
