@@ -50,7 +50,7 @@ class OzoneClient:
     # ---- Session management ----
 
     async def _create_session(self) -> str:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"https://{self._settings.pds}/xrpc/com.atproto.server.createSession",
                 json={
@@ -70,7 +70,7 @@ class OzoneClient:
     async def _refresh_session(self) -> str:
         if not self._cached_session:
             return await self._create_session()
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"https://{self._settings.pds}/xrpc/com.atproto.server.refreshSession",
                 headers={"Authorization": f"Bearer {self._cached_session['refreshJwt']}"},
