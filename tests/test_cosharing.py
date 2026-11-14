@@ -387,7 +387,7 @@ class TestCosharingClustersToolAC1_8:
 
             from skywatch_mcp.tools.cosharing import cosharing_clusters
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await cosharing_clusters(limit=20)
 
 
@@ -519,7 +519,7 @@ class TestCosharingPairsToolAC1_9:
 
             from skywatch_mcp.tools.cosharing import cosharing_pairs
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await cosharing_pairs(did="did:plc:test", limit=50)
 
 
@@ -639,7 +639,7 @@ class TestCosharingEvolutionToolAC1_10:
 
             from skywatch_mcp.tools.cosharing import cosharing_evolution
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await cosharing_evolution(cluster_id="2024-01-15-0042", limit=30)
 
 
@@ -972,7 +972,7 @@ class TestCosharingRunsTool:
 
             from skywatch_mcp.tools.cosharing import cosharing_runs
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await cosharing_runs(limit=14)
 
 
@@ -1034,7 +1034,7 @@ class TestQuoteCosharingClustersTool:
 
             from skywatch_mcp.tools.cosharing import quote_cosharing_clusters
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await quote_cosharing_clusters(limit=20)
 
 
@@ -1081,7 +1081,7 @@ class TestQuoteCosharingPairsTool:
 
             from skywatch_mcp.tools.cosharing import quote_cosharing_pairs
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await quote_cosharing_pairs(did="did:plc:test", limit=50)
 
 
@@ -1128,7 +1128,7 @@ class TestQuoteCosharingEvolutionTool:
 
             from skywatch_mcp.tools.cosharing import quote_cosharing_evolution
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await quote_cosharing_evolution(cluster_id="2024-01-15-0042", limit=30)
 
 

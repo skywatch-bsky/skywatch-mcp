@@ -9,6 +9,7 @@ from skywatch_mcp.lib.sanitizers import (
     validate_days,
     validate_limit,
 )
+from skywatch_mcp.lib.tool_errors import tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -71,6 +72,7 @@ LIMIT {safe_limit}"""
 
 
 @mcp.tool()
+@tool_error_boundary
 async def account_entropy_results(
     user_id: str | None = None,
     date: str | None = None,
@@ -78,32 +80,27 @@ async def account_entropy_results(
     limit: int = 50,
 ) -> str:
     """Look up bot-like posting pattern detection results based on normalized entropy (Miller–Madow corrected) and inter-post interval coefficient of variation. An account is flagged is_bot_like when hourly_entropy_norm is high AND either interval_entropy_norm is low or interval_cv is low — indicating metronomic, machine-like posting. Returns individual flag columns (hourly_flag, interval_flag, cv_flag) for diagnostic attribution. Note: user_id is a DID. Accounts with fewer than 10 posts are never scored."""
-    try:
-        query = _build_account_entropy_results_query(user_id, date, only_bot_like, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_account_entropy_results_query(user_id, date, only_bot_like, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def account_entropy_trend(
     user_id: str,
     days: int = 14,
     limit: int = 500,
 ) -> str:
     """Time series of account entropy and coefficient-of-variation signals for a single account. Shows whether bot-like behavior is sustained across windows or a one-off. Returns all entropy/CV metrics including individual flag columns. Ordered chronologically."""
-    try:
-        query = _build_account_entropy_trend_query(user_id, days, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_account_entropy_trend_query(user_id, days, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )

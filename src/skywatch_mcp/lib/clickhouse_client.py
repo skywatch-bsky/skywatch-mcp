@@ -9,6 +9,7 @@ from clickhouse_connect.driver.asyncclient import AsyncClient
 
 from skywatch_mcp.config import ClickHouseSettings
 from skywatch_mcp.lib.sql_validation import ValidationFailure, validate_query
+from skywatch_mcp.lib.tool_errors import ToolInputError
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ class ClickHouseClient:
     async def query(self, sql: str) -> QueryResult:
         validation = validate_query(sql)
         if isinstance(validation, ValidationFailure):
-            raise ValueError(f"Query validation failed: {validation.reason}")
+            raise ToolInputError(f"Query validation failed: {validation.reason}")
         return await self._execute_query(validation.normalized, 60)
 
     async def query_trusted(self, sql: str) -> QueryResult:

@@ -258,7 +258,7 @@ class TestContentSimilarityTool:
 
             mock_client.query_trusted.side_effect = Exception("Query failed")
 
-            with pytest.raises(ValueError, match="Query failed"):
+            with pytest.raises(Exception, match="Query failed"):
                 await content_similarity("test")
 
     @pytest.mark.asyncio

@@ -93,7 +93,7 @@ class TestClickHouseTools:
 
             from skywatch_mcp.tools.clickhouse import clickhouse_schema
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception, match="Connection failed"):
                 await clickhouse_schema()
 
 

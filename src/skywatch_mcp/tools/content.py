@@ -3,6 +3,7 @@
 import json
 
 from skywatch_mcp.lib.clickhouse_client import get_client
+from skywatch_mcp.lib.tool_errors import tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -26,6 +27,7 @@ def _build_similarity_query(escaped_text: str, threshold: float, limit: int) -> 
 
 
 @mcp.tool()
+@tool_error_boundary
 async def content_similarity(
     text: str,
     threshold: float = 0.4,
@@ -38,22 +40,19 @@ async def content_similarity(
         threshold: Distance threshold (0=identical, 1=completely different). Lower values find more similar content. Default 0.4
         limit: Maximum number of results. Default 20
     """
-    try:
-        escaped_text = _escape_clickhouse_sql(text)
-        query = _build_similarity_query(escaped_text, threshold, limit)
-        result = await get_client().query_trusted(query)
+    escaped_text = _escape_clickhouse_sql(text)
+    query = _build_similarity_query(escaped_text, threshold, limit)
+    result = await get_client().query_trusted(query)
 
-        results = [
-            {
-                "user": str(row.get("user", "")),
-                "handle": str(row.get("handle", "")),
-                "text": str(row.get("text", "")),
-                "score": float(row.get("score", 0)),
-                "created_at": str(row.get("created_at", "")),
-            }
-            for row in result.rows
-        ]
+    results = [
+        {
+            "user": str(row.get("user", "")),
+            "handle": str(row.get("handle", "")),
+            "text": str(row.get("text", "")),
+            "score": float(row.get("score", 0)),
+            "created_at": str(row.get("created_at", "")),
+        }
+        for row in result.rows
+    ]
 
-        return json.dumps(results, indent=2, default=str)
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    return json.dumps(results, indent=2, default=str)

@@ -6,6 +6,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from skywatch_mcp.lib.tool_errors import tool_error_boundary
 from skywatch_mcp.lib.url_shorteners import is_known_shortener
 from skywatch_mcp.server import mcp
 
@@ -75,10 +76,8 @@ async def _follow_redirects(start_url: str, max_hops: int = 15) -> dict[str, Any
 
 
 @mcp.tool()
+@tool_error_boundary
 async def url_expand(url: str) -> str:
     """Follow a URL's redirect chain and report each hop with status code. Identifies known URL shorteners."""
-    try:
-        result = await _follow_redirects(url)
-        return json.dumps(result, indent=2)
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    result = await _follow_redirects(url)
+    return json.dumps(result, indent=2)

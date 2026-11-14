@@ -230,7 +230,7 @@ class TestUrlOverdispersionResultsTool:
 
             from skywatch_mcp.tools.url_overdispersion import url_overdispersion_results
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await url_overdispersion_results(limit=50)
 
 
@@ -270,7 +270,7 @@ class TestUrlOverdispersionTrendTool:
 
             from skywatch_mcp.tools.url_overdispersion import url_overdispersion_trend
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await url_overdispersion_trend(domain="example.com", days=14, limit=500)
 
 

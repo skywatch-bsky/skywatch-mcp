@@ -210,7 +210,7 @@ Name Server: NS.EXPIRES.COM
 
         from skywatch_mcp.tools.whois import whois_lookup
 
-        with pytest.raises(ValueError, match="WHOIS server error"):
+        with pytest.raises(Exception, match="WHOIS server error"):
             await whois_lookup("example.com")
 
     @pytest.mark.asyncio

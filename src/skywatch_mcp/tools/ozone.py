@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 import httpx
 
 from skywatch_mcp.config import OzoneSettings
+from skywatch_mcp.lib.tool_errors import ToolInputError, tool_error_boundary
 from skywatch_mcp.server import mcp
 
 # Tests must reload this module after changing environment variables.
@@ -65,11 +66,11 @@ def _build_subject_ref(subject: str, cid: str | None = None) -> dict[str, str]:
         return {"$type": "com.atproto.admin.defs#repoRef", "did": subject}
     if subject.startswith("at://"):
         if not cid:
-            raise ValueError(
+            raise ToolInputError(
                 "AT-URI subjects require a cid parameter. Use com.atproto.repo.getRecord to resolve the CID for the record."
             )
         return {"$type": "com.atproto.repo.strongRef", "uri": subject, "cid": cid}
-    raise ValueError(f"Subject must be a DID (did:plc:...) or AT-URI (at://...). Got: {subject}")
+    raise ToolInputError(f"Subject must be a DID (did:plc:...) or AT-URI (at://...). Got: {subject}")
 
 
 def _build_mod_tool(batch_id: str | None = None) -> dict[str, Any]:
@@ -206,7 +207,7 @@ async def _emit_ozone_event(
 
     config_error = _validate_ozone_config()
     if config_error:
-        raise ValueError(config_error)
+        raise ToolInputError(config_error)
 
     subject_ref = _build_subject_ref(subject, cid)
 
@@ -223,6 +224,7 @@ async def _emit_ozone_event(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_label(
     subject: str,
     label: str,
@@ -245,7 +247,7 @@ async def ozone_label(
     """
     config_error = _validate_ozone_config()
     if config_error:
-        raise ValueError(config_error)
+        raise ToolInputError(config_error)
 
     from datetime import datetime, timezone
 
@@ -279,6 +281,7 @@ async def ozone_label(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_comment(
     subject: str,
     comment: str,
@@ -295,6 +298,7 @@ async def ozone_comment(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_acknowledge(
     subject: str,
     comment: str | None = None,
@@ -311,6 +315,7 @@ async def ozone_acknowledge(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_escalate(
     subject: str,
     comment: str | None = None,
@@ -323,6 +328,7 @@ async def ozone_escalate(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_tag(
     subject: str,
     add: list[str] | None = None,
@@ -335,12 +341,13 @@ async def ozone_tag(
     add = add or []
     remove = remove or []
     if not add and not remove:
-        raise ValueError("At least one of 'add' or 'remove' must be non-empty.")
+        raise ToolInputError("At least one of 'add' or 'remove' must be non-empty.")
     event = {"$type": "tools.ozone.moderation.defs#modEventTag", "add": add, "remove": remove}
     return await _emit_ozone_event(subject, event, cid=cid, comment=comment, batch_id=batch_id)
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_mute(
     subject: str,
     duration_in_hours: float,
@@ -357,6 +364,7 @@ async def ozone_mute(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_unmute(
     subject: str,
     comment: str | None = None,
@@ -369,6 +377,7 @@ async def ozone_unmute(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_resolve_appeal(
     subject: str,
     comment: str,
@@ -381,6 +390,7 @@ async def ozone_resolve_appeal(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_report(
     subject: str,
     report_type: str,
@@ -404,7 +414,7 @@ async def ozone_report(
     elif "#" in report_type:
         resolved_report_type = report_type
     else:
-        raise ValueError(
+        raise ToolInputError(
             f"Unknown report type: {report_type}. "
             "Valid friendly names: spam, violation, misleading, sexual, rude, other, appeal. "
             "Full reason NSIDs (e.g. tools.ozone.report.defs#reasonMisleadingSpam) are also accepted."
@@ -420,6 +430,7 @@ async def ozone_report(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_query_statuses(
     subject: str | None = None,
     review_state: str | None = None,
@@ -435,7 +446,7 @@ async def ozone_query_statuses(
     """Query subject statuses from the Ozone moderation queue with optional filtering and pagination."""
     config_error = _validate_ozone_config()
     if config_error:
-        raise ValueError(config_error)
+        raise ToolInputError(config_error)
 
     mapped_review_state: str | None = None
     if review_state:
@@ -445,7 +456,7 @@ async def ozone_query_statuses(
         elif review_state in REVIEW_STATE_MAP:
             mapped_review_state = REVIEW_STATE_MAP[review_state]
         else:
-            raise ValueError(
+            raise ToolInputError(
                 f"Unknown review state: {review_state}. "
                 f"Valid values: {', '.join(sorted(REVIEW_STATE_MAP.keys()))}"
             )
@@ -470,6 +481,7 @@ async def ozone_query_statuses(
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ozone_query_events(
     subject: str | None = None,
     types: list[str] | None = None,
@@ -485,7 +497,7 @@ async def ozone_query_events(
     """Query moderation events from Ozone with optional filtering and pagination."""
     config_error = _validate_ozone_config()
     if config_error:
-        raise ValueError(config_error)
+        raise ToolInputError(config_error)
 
     mapped_types = None
     if types:
@@ -493,7 +505,7 @@ async def ozone_query_events(
         for t in types:
             mapped = EVENT_TYPE_MAP.get(t)
             if not mapped:
-                raise ValueError(f"Unknown event type: {t}")
+                raise ToolInputError(f"Unknown event type: {t}")
             mapped_types.append(mapped)
 
     query_params: dict[str, str | list[str] | None] = {

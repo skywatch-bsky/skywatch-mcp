@@ -5,6 +5,7 @@ import re
 
 import httpx
 
+from skywatch_mcp.lib.tool_errors import ToolInputError, tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -28,10 +29,11 @@ def _validate_ip_address(ip: str) -> bool:
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ip_lookup(ip: str) -> str:
     """Look up geographic location and network information for an IP address using ip-api.com."""
     if not _validate_ip_address(ip):
-        raise ValueError(f"Invalid IP address format: {ip}")
+        raise ToolInputError(f"Invalid IP address format: {ip}")
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -71,9 +73,5 @@ async def ip_lookup(ip: str) -> str:
             },
         }
         return json.dumps(result, indent=2)
-    except httpx.TimeoutException as e:
-        raise ValueError(f"Request timed out: {e}") from e
     except ValueError:
         raise
-    except Exception as e:
-        raise ValueError(str(e)) from e

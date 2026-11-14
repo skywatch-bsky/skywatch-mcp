@@ -10,6 +10,7 @@ from skywatch_mcp.lib.sanitizers import (
     validate_limit,
     validate_threshold,
 )
+from skywatch_mcp.lib.tool_errors import tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -107,6 +108,7 @@ LIMIT {safe_limit}"""
 
 
 @mcp.tool()
+@tool_error_boundary
 async def cosharing_clusters(
     did: str | None = None,
     cluster_id: str | None = None,
@@ -115,19 +117,17 @@ async def cosharing_clusters(
     limit: int = 20,
 ) -> str:
     """Find URL co-sharing clusters — groups of accounts identified as coordinated via TF-IDF cosine-similarity network and density-based dismantling (Cinus et al., WWW '25). Filter by DID (find clusters containing an account), cluster_id (look up a specific cluster), date, or minimum member count. Returns cluster metadata including mean_edge_similarity and subgraph_density (high values = tight coordination), evolution info, and sample members/URLs."""
-    try:
-        query = _build_clusters_query(did, cluster_id, date, min_members, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_clusters_query(did, cluster_id, date, min_members, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def cosharing_pairs(
     did: str,
     date: str | None = None,
@@ -135,34 +135,29 @@ async def cosharing_pairs(
     limit: int = 50,
 ) -> str:
     """Get raw co-sharing pairs for a specific account — which other accounts share the same URLs on the same day. Returns paired accounts, edge weights (number of co-shared URLs), and the actual shared URLs. Note: this materialized view is investigation tooling only; the URL co-sharing sidecar no longer consumes it (reads osprey_execution_results directly via TF-IDF)."""
-    try:
-        query = _build_pairs_query(did, date, min_weight, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_pairs_query(did, date, min_weight, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def cosharing_evolution(
     cluster_id: str,
     limit: int = 30,
 ) -> str:
     """Trace the evolution history of a URL co-sharing cluster over time. Shows how a cluster was born, continued, merged, split, or died across days."""
-    try:
-        query = _build_evolution_query(cluster_id, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_evolution_query(cluster_id, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 def _build_cosharing_runs_query(
@@ -280,24 +275,23 @@ LIMIT {safe_limit}"""
 
 
 @mcp.tool()
+@tool_error_boundary
 async def cosharing_runs(
     date: str | None = None,
     limit: int = 14,
 ) -> str:
     """Look up URL co-sharing pipeline run metadata — filter-stage counts, chosen thresholds, and guardrail outcomes for each daily run. Essential for disambiguating empty cluster results: a zero-cluster day with knee_found=false means 'no coordination detected' (expected), while knee_found=false with guardrail_triggered=true indicates a pipeline issue. Ordered by run_date descending."""
-    try:
-        query = _build_cosharing_runs_query(date, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_cosharing_runs_query(date, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def quote_cosharing_clusters(
     did: str | None = None,
     cluster_id: str | None = None,
@@ -306,19 +300,17 @@ async def quote_cosharing_clusters(
     limit: int = 20,
 ) -> str:
     """Find quote-post co-sharing clusters — groups of accounts identified as coordinated via Newman-weighted co-sharing graph and Leiden community detection. Filter by DID (find clusters containing an account), cluster_id (look up a specific cluster), date, or minimum member count. Returns cluster metadata including unique URI count, temporal spread, evolution info, and sample members/URIs."""
-    try:
-        query = _build_quote_clusters_query(did, cluster_id, date, min_members, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_quote_clusters_query(did, cluster_id, date, min_members, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def quote_cosharing_pairs(
     did: str,
     date: str | None = None,
@@ -326,31 +318,26 @@ async def quote_cosharing_pairs(
     limit: int = 50,
 ) -> str:
     """Get raw quote-post co-sharing pairs for a specific account — which other accounts co-quoted the same URIs on the same day. Returns paired accounts, edge weights, and the actual shared URIs. This table IS consumed by the quote co-sharing sidecar for cluster detection."""
-    try:
-        query = _build_quote_pairs_query(did, date, min_weight, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_quote_pairs_query(did, date, min_weight, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def quote_cosharing_evolution(
     cluster_id: str,
     limit: int = 30,
 ) -> str:
     """Trace the evolution history of a quote-post co-sharing cluster over time. Shows how a cluster was born, continued, merged, split, or died across days."""
-    try:
-        query = _build_quote_evolution_query(cluster_id, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_quote_evolution_query(cluster_id, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
