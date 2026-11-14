@@ -42,5 +42,5 @@ Last verified: 2026-11-14
 
 ## Boundaries
 - All ClickHouse access is read-only (SELECT/WITH only, enforced by sql_validation)
-- Ozone write operations are limited to moderation events (label, comment, tag, mute, etc.)
+- Ozone write operations are limited to moderation events (label, comment, tag, mute, report, etc.)
 - No direct database writes anywhere in the codebase

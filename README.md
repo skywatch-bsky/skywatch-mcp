@@ -58,7 +58,7 @@ For Claude Desktop or Claude Code:
 3. Restart the client or reload its MCP configuration.
 4. Open the client's tool list.
 
-A successful connection lists 32 skywatch-mcp tools. Tool discovery confirms the connection, not access to ClickHouse or Ozone.
+A successful connection lists 33 skywatch-mcp tools. Tool discovery confirms the connection, not access to ClickHouse or Ozone.
 
 With ClickHouse configured, ask the client to call `clickhouse_schema`. A successful result contains column names and types from the dataset. You can also use MCP Inspector (`mcp-inspector`) to inspect the tool list.
 
