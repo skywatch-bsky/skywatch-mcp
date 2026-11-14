@@ -1,6 +1,8 @@
 # skywatch-mcp
 
-skywatch-mcp is a FastMCP server for investigators and moderators who examine activity on the AT Protocol / Bluesky network. Its 33 tools cover ClickHouse analytics, network lookups, content similarity, co-sharing analysis, anomaly results, and Ozone moderation.
+skywatch-mcp is an MCP server built on the official [Model Context Protocol Python SDK](https://pypi.org/project/mcp/) for investigators and moderators who examine activity on the AT Protocol / Bluesky network. Its 33 tools cover ClickHouse analytics, network lookups, content similarity, co-sharing analysis, anomaly results, and Ozone moderation.
+
+The server speaks the MCP `2026-07-28` protocol. Modern clients discover it without an initialize handshake; older clients that initialize with the `2025-11-25` handshake (or earlier) still work unchanged. The same launch command serves both.
 
 Draws heavily on [Phoebe by haileyok](https://github.com/haileyok/phoebe).
 
@@ -96,6 +98,8 @@ Run these commands from the repository folder:
 | Start the stdio server | `uv run skywatch-mcp` |
 
 The run command waits for MCP messages. Use an MCP client to confirm that the server lists its tools.
+
+`tests/test_protocol.py` starts the real console entry point as a subprocess and speaks raw JSON-RPC to it, so the suite exercises the public stdio transport, not only in-process calls. These tests are self-contained: they run in a temporary directory without your `.env` or credentials and never call ClickHouse, Ozone, or other network services.
 
 ## Environment variables
 
