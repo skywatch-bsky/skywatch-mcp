@@ -10,12 +10,9 @@ import httpx
 from skywatch_mcp.config import OzoneSettings
 from skywatch_mcp.server import mcp
 
-# _settings is created at import time to capture environment variables at load time.
-# Environment variables are typically static for the lifetime of the process.
-# Tests reload this module when env vars change, which is the accepted pattern.
+# Tests must reload this module after changing environment variables.
 _settings = OzoneSettings()
 
-# Session cache at module level
 _cached_session: dict[str, str] | None = None
 
 REVIEW_STATE_MAP = {
@@ -68,9 +65,7 @@ def _build_subject_ref(subject: str, cid: str | None = None) -> dict[str, str]:
 def _build_mod_tool(batch_id: str | None = None) -> dict[str, Any]:
     from datetime import datetime, timezone
 
-    # Note: TS version uses a custom UUIDv7 implementation. We use uuid4 here
-    # which is acceptable — batch IDs only need uniqueness, not time-ordering.
-    # Python 3.14+ will have native uuid7() if time-ordering is later desired.
+    # Batch IDs need uniqueness, not time-ordering, so UUID4 is sufficient.
     return {
         "name": "skywatch-mcp",
         "meta": {
@@ -238,7 +233,6 @@ async def ozone_label(
         batch_id: Optional UUID to group related label operations.
         duration_in_hours: Hours until label auto-expires. Omit for permanent. Only meaningful for apply.
     """
-    # This tool has custom logic beyond _emit_ozone_event (buildOzoneRequest pattern from TS)
     config_error = _validate_ozone_config()
     if config_error:
         raise ValueError(config_error)
