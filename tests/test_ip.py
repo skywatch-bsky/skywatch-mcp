@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
+from mcp.server.mcpserver.exceptions import ToolError
+
 
 @pytest.fixture
 def mock_http_client():
@@ -185,10 +187,10 @@ class TestIPLookup:
 
         from skywatch_mcp.tools.ip import ip_lookup
 
-        with pytest.raises(ValueError, match="Invalid IP address format"):
+        with pytest.raises(ToolError, match="Invalid IP address format"):
             await ip_lookup("999.999.999.999")
 
-        with pytest.raises(ValueError, match="Invalid IP address format"):
+        with pytest.raises(ToolError, match="Invalid IP address format"):
             await ip_lookup("not-an-ip")
 
     @pytest.mark.asyncio
@@ -196,7 +198,7 @@ class TestIPLookup:
         """ip_lookup should reject invalid IPv6 addresses"""
         from skywatch_mcp.tools.ip import ip_lookup
 
-        with pytest.raises(ValueError, match="Invalid IP address format"):
+        with pytest.raises(ToolError, match="Invalid IP address format"):
             await ip_lookup(":::1")
 
     @pytest.mark.asyncio
@@ -228,7 +230,7 @@ class TestIPLookup:
 
         from skywatch_mcp.tools.ip import ip_lookup
 
-        with pytest.raises(ValueError, match="Request timed out"):
+        with pytest.raises(ToolError, match="timed out"):
             await ip_lookup("8.8.8.8")
 
     @pytest.mark.asyncio
@@ -279,5 +281,5 @@ class TestIPLookup:
 
         from skywatch_mcp.tools.ip import ip_lookup
 
-        with pytest.raises(ValueError, match="Network error"):
+        with pytest.raises(Exception, match="Network error"):
             await ip_lookup("8.8.8.8")

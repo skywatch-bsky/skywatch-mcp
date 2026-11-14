@@ -233,7 +233,7 @@ class TestSignupAnomaliesTool:
 
             from skywatch_mcp.tools.signup_anomaly import signup_anomalies
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await signup_anomalies(limit=50)
 
 
@@ -274,7 +274,7 @@ class TestSignupAnomalyTrendTool:
 
             from skywatch_mcp.tools.signup_anomaly import signup_anomaly_trend
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await signup_anomaly_trend(pds_host="pds.example.com", days=14, limit=500)
 
 

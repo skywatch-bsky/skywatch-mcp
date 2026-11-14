@@ -3,12 +3,12 @@
 Last verified: 2026-11-14
 
 ## Purpose
-Expose AT Protocol investigation and moderation capabilities as MCP tools. Each module registers tools on the shared `mcp` FastMCP instance via decorator side-effects at import time.
+Expose AT Protocol investigation and moderation capabilities as MCP tools. Each module registers tools on the shared `mcp` MCPServer instance (official MCP Python SDK) via decorator side-effects at import time.
 
 ## Contracts
 - **Exposes**: 33 MCP tools across 12 modules
-- **Guarantees**: All tools return JSON strings. All errors raise `ValueError`.
-- **Expects**: `server.mcp` must be instantiated before tool module imports
+- **Guarantees**: All tools return JSON strings wrapped by the SDK into text content plus `{"result": <string>}` structured content. Safe validation/configuration errors surface as SDK `ToolError` messages; backend failure details are masked.
+- **Expects**: Every tool is decorated `@mcp.tool()` over `@tool_error_boundary` (boundary directly beneath the registration decorator). `server.mcp` must be instantiated before tool module imports
 
 ## Tool Inventory
 | Module | Tools | External Dependency |
@@ -28,12 +28,13 @@ Expose AT Protocol investigation and moderation capabilities as MCP tools. Each 
 
 ## Key Decisions
 - Tool registration via import side-effects: keeps server.py minimal, tools self-contained
+- Error boundary in `lib/tool_errors.py`: handlers stay free of try/except rewrapping; `ToolInputError` (safe input/config problems) is translated to SDK `ToolError` with its message intact, `TimeoutError`/`httpx.TimeoutException`/`httpx.ConnectError` get fixed detail-free messages, and everything else propagates for SDK masking. `functools.wraps` keeps handler signatures visible so schema discovery is unchanged
 - `query()` vs `query_trusted()`: user-supplied SQL is validated; internal SQL (cosharing, content, sidecar tools) uses trusted path with longer timeout
 - Ozone session management: module-level cache with automatic refresh on ExpiredToken
 - Sanitizers promoted to `lib/sanitizers.py` — shared across all tool modules
 - Cosharing queries use manual DID/cluster_id/date sanitization (regex allowlist) instead of parameterized queries
 - Cosharing numeric parameters (min_members, min_weight) explicitly cast to int for defense-in-depth validation
-- `ozone_report` report_type: friendly names resolve via `REPORT_TYPE_MAP`; any `#`-containing reason NSID passes through verbatim; anything else raises `ValueError`
+- `ozone_report` report_type: friendly names resolve via `REPORT_TYPE_MAP`; any `#`-containing reason NSID passes through verbatim; anything else raises `ToolInputError`
 
 ## Invariants
 - clickhouse_query only permits SELECT/WITH statements with a LIMIT clause

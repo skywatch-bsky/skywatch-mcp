@@ -8,7 +8,7 @@ version = "0.1.1"
 description = "MCP server for investigating activity on the AT Protocol / Bluesky network"
 requires-python = ">=3.12"
 dependencies = [
-    "mcp>=1.0",
+    "mcp>=2.3,<3",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "clickhouse-connect>=0.7",

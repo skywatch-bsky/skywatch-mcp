@@ -8,6 +8,7 @@ import dns.asyncresolver
 import dns.resolver
 import httpx
 
+from skywatch_mcp.lib.tool_errors import tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -66,14 +67,12 @@ async def _check_http_status(domain: str) -> dict[str, Any] | None:
 
 
 @mcp.tool()
+@tool_error_boundary
 async def domain_check(domain: str) -> str:
     """Check DNS records and HTTP status for a domain. Returns A, AAAA, NS, MX, TXT, CNAME, SOA records and whether the domain resolves."""
-    try:
-        records = await _resolve_dns_records(domain)
-        http = await _check_http_status(domain)
-        resolves = len(records["a"]) > 0 or len(records["aaaa"]) > 0
+    records = await _resolve_dns_records(domain)
+    http = await _check_http_status(domain)
+    resolves = len(records["a"]) > 0 or len(records["aaaa"]) > 0
 
-        result = {"domain": domain, "resolves": resolves, "records": records, "http": http}
-        return json.dumps(result, indent=2)
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    result = {"domain": domain, "resolves": resolves, "records": records, "http": http}
+    return json.dumps(result, indent=2)

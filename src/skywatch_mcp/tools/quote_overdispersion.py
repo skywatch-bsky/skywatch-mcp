@@ -10,6 +10,7 @@ from skywatch_mcp.lib.sanitizers import (
     validate_days,
     validate_limit,
 )
+from skywatch_mcp.lib.tool_errors import ToolInputError, tool_error_boundary
 from skywatch_mcp.server import mcp
 
 _VALID_GRANULARITIES = {"hourly", "daily"}
@@ -26,7 +27,7 @@ def _build_quote_overdispersion_results_query(
     limit: int = 50,
 ) -> str:
     if signal is not None and signal not in _VALID_SIGNALS:
-        raise ValueError(
+        raise ToolInputError(
             f"Invalid signal. Expected one of {_VALID_SIGNALS}, got: {signal}"
         )
 
@@ -42,7 +43,7 @@ def _build_quote_overdispersion_results_query(
 
     if granularity:
         if granularity not in _VALID_GRANULARITIES:
-            raise ValueError(
+            raise ToolInputError(
                 f"Invalid granularity. Expected one of {_VALID_GRANULARITIES}, got: {granularity}"
             )
         filters.append(f"granularity = '{granularity}'")
@@ -101,6 +102,7 @@ LIMIT {safe_limit}"""
 
 
 @mcp.tool()
+@tool_error_boundary
 async def quote_overdispersion_results(
     quoted_uri: str | None = None,
     quoted_author_did: str | None = None,
@@ -111,34 +113,29 @@ async def quote_overdispersion_results(
     limit: int = 50,
 ) -> str:
     """Look up anomalous quote-post concentration on a single quoted URI, detected via negative-binomial and beta-binomial testing with BH-FDR correction. Structurally similar to URL overdispersion but targets quote-post clustering instead of URL sharing. The signal parameter filters to rows where the specified signal is the dominant (lower q-value) signal — it does not independently test whether that signal is anomalous. Note: population baseline dominance (50–70%+) is expected/normal for quote posts due to their short-lived nature."""
-    try:
-        query = _build_quote_overdispersion_results_query(
-            quoted_uri, quoted_author_did, granularity, date, signal, only_anomalies, limit
-        )
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_quote_overdispersion_results_query(
+        quoted_uri, quoted_author_did, granularity, date, signal, only_anomalies, limit
+    )
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def quote_overdispersion_trend(
     quoted_uri: str,
     days: int = 14,
     limit: int = 500,
 ) -> str:
     """Time series of quote-post overdispersion data for a single quoted URI. Shows full baseline history across both signals (volume and density)."""
-    try:
-        query = _build_quote_overdispersion_trend_query(quoted_uri, days, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_quote_overdispersion_trend_query(quoted_uri, days, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )

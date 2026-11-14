@@ -5,6 +5,7 @@ import re
 
 import httpx
 
+from skywatch_mcp.lib.tool_errors import ToolInputError, tool_error_boundary
 from skywatch_mcp.server import mcp
 
 
@@ -28,52 +29,47 @@ def _validate_ip_address(ip: str) -> bool:
 
 
 @mcp.tool()
+@tool_error_boundary
 async def ip_lookup(ip: str) -> str:
     """Look up geographic location and network information for an IP address using ip-api.com."""
     if not _validate_ip_address(ip):
-        raise ValueError(f"Invalid IP address format: {ip}")
+        raise ToolInputError(f"Invalid IP address format: {ip}")
 
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(
-                f"http://ip-api.com/json/{ip}",
-                params={
-                    "fields": "status,message,query,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting"
-                },
-            )
-            data = response.json()
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        response = await client.get(
+            f"http://ip-api.com/json/{ip}",
+            params={
+                "fields": "status,message,query,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting"
+            },
+        )
+        data = response.json()
 
-        if data.get("status") == "fail":
-            raise ValueError(data.get("message", "Unknown API error"))
+    if data.get("status") == "fail":
+        # Backend-provided text: left as plain ValueError so the SDK masks it.
+        raise ValueError(data.get("message", "Unknown API error"))
 
-        result = {
-            "ip": data.get("query", ip),
-            "geo": {
-                "country": str(data.get("country", "")),
-                "countryCode": str(data.get("countryCode", "")),
-                "region": str(data.get("region", "")),
-                "city": str(data.get("city", "")),
-                "zip": str(data.get("zip", "")),
-                "lat": float(data.get("lat", 0)),
-                "lon": float(data.get("lon", 0)),
-                "timezone": str(data.get("timezone", "")),
-            },
-            "network": {
-                "isp": str(data.get("isp", "")),
-                "org": str(data.get("org", "")),
-                "asn": str(data.get("as", "")),
-                "asname": str(data.get("asname", "")),
-            },
-            "flags": {
-                "mobile": bool(data.get("mobile")),
-                "proxy": bool(data.get("proxy")),
-                "hosting": bool(data.get("hosting")),
-            },
-        }
-        return json.dumps(result, indent=2)
-    except httpx.TimeoutException as e:
-        raise ValueError(f"Request timed out: {e}") from e
-    except ValueError:
-        raise
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    result = {
+        "ip": data.get("query", ip),
+        "geo": {
+            "country": str(data.get("country", "")),
+            "countryCode": str(data.get("countryCode", "")),
+            "region": str(data.get("region", "")),
+            "city": str(data.get("city", "")),
+            "zip": str(data.get("zip", "")),
+            "lat": float(data.get("lat", 0)),
+            "lon": float(data.get("lon", 0)),
+            "timezone": str(data.get("timezone", "")),
+        },
+        "network": {
+            "isp": str(data.get("isp", "")),
+            "org": str(data.get("org", "")),
+            "asn": str(data.get("as", "")),
+            "asname": str(data.get("asname", "")),
+        },
+        "flags": {
+            "mobile": bool(data.get("mobile")),
+            "proxy": bool(data.get("proxy")),
+            "hosting": bool(data.get("hosting")),
+        },
+    }
+    return json.dumps(result, indent=2)

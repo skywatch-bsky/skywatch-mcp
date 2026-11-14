@@ -232,7 +232,7 @@ class TestQuoteOverdispersionResultsTool:
 
             from skywatch_mcp.tools.quote_overdispersion import quote_overdispersion_results
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await quote_overdispersion_results(limit=50)
 
 
@@ -274,7 +274,7 @@ class TestQuoteOverdispersionTrendTool:
 
             from skywatch_mcp.tools.quote_overdispersion import quote_overdispersion_trend
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception):
                 await quote_overdispersion_trend(
                     quoted_uri="at://did:plc:abc/post/xyz", days=14, limit=500
                 )

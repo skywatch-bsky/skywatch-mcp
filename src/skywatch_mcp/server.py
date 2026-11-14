@@ -1,8 +1,8 @@
 # pattern: Imperative Shell
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
-mcp = FastMCP("skywatch-mcp")
+mcp = MCPServer("skywatch-mcp")
 
 import skywatch_mcp.tools.account_entropy  # noqa: E402, F401
 import skywatch_mcp.tools.clickhouse  # noqa: E402, F401

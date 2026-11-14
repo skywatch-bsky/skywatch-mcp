@@ -233,11 +233,21 @@ class TestDomainCheck:
         mock_client, _ = mock_http_client
 
         mock_resolver.resolve.side_effect = Exception("DNS resolution failed")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.reason_phrase = "OK"
+        mock_client.head.return_value = mock_response
 
         from skywatch_mcp.tools.domain import domain_check
 
-        with pytest.raises(ValueError):
-            await domain_check("example.com")
+        result_json = await domain_check("example.com")
+        result = json.loads(result_json)
+
+        # Per-record failures are swallowed by gather(return_exceptions=True),
+        # so DNS errors degrade to empty record lists instead of raising.
+        assert result["resolves"] is False
+        assert result["records"]["a"] == []
+        assert result["records"]["aaaa"] == []
 
     @pytest.mark.asyncio
     async def test_domain_check_empty_results_handled_correctly(

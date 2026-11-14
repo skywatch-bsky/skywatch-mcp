@@ -216,7 +216,7 @@ class TestAccountEntropyResultsTool:
 
             from skywatch_mcp.tools.account_entropy import account_entropy_results
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception, match="Connection failed"):
                 await account_entropy_results(limit=50)
 
 
@@ -256,7 +256,7 @@ class TestAccountEntropyTrendTool:
 
             from skywatch_mcp.tools.account_entropy import account_entropy_trend
 
-            with pytest.raises(ValueError):
+            with pytest.raises(Exception, match="Query failed"):
                 await account_entropy_trend(user_id="did:plc:abc123", days=14, limit=500)
 
 

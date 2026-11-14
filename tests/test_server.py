@@ -74,18 +74,10 @@ class TestToolInputSchemas:
         assert len(tools) > 0, "No tools registered"
 
         for tool in tools:
-            assert hasattr(tool, "inputSchema"), f"Tool {tool.name} missing inputSchema"
-            assert tool.inputSchema is not None, f"Tool {tool.name} inputSchema is None"
+            assert hasattr(tool, "input_schema"), f"Tool {tool.name} missing input_schema"
+            assert tool.input_schema is not None, f"Tool {tool.name} input_schema is None"
 
-            if isinstance(tool.inputSchema, dict):
-                schema = tool.inputSchema
-            else:
-                # In case it's returned as a different type, convert to dict
-                import json
-                if isinstance(tool.inputSchema, str):
-                    schema = json.loads(tool.inputSchema)
-                else:
-                    schema = vars(tool.inputSchema) if hasattr(tool.inputSchema, '__dict__') else {}
+            schema = tool.input_schema
 
             # Check properties exist and have descriptions
             if "properties" in schema:

@@ -10,6 +10,7 @@ from skywatch_mcp.lib.sanitizers import (
     validate_limit,
     validate_q_value,
 )
+from skywatch_mcp.lib.tool_errors import ToolInputError, tool_error_boundary
 from skywatch_mcp.server import mcp
 
 _VALID_GRANULARITIES = {"daily", "hourly"}
@@ -31,7 +32,7 @@ def _build_signup_anomalies_query(
 
     if granularity:
         if granularity not in _VALID_GRANULARITIES:
-            raise ValueError(
+            raise ToolInputError(
                 f"Invalid granularity. Expected one of {_VALID_GRANULARITIES}, got: {granularity}"
             )
         filters.append(f"granularity = '{granularity}'")
@@ -85,6 +86,7 @@ LIMIT {safe_limit}"""
 
 
 @mcp.tool()
+@tool_error_boundary
 async def signup_anomalies(
     pds_host: str | None = None,
     granularity: str | None = None,
@@ -94,34 +96,29 @@ async def signup_anomalies(
     limit: int = 50,
 ) -> str:
     """Look up anomalous PDS signup spikes detected via negative-binomial/Poisson testing with Benjamini–Hochberg FDR correction. Filter by PDS host, granularity (daily/hourly), or date. Returns observed vs expected counts, q-values, baseline source, dispersion diagnostics, and sample account DIDs. Excluded hosts (bsky.network, bridgy-fed, mostr.pub) are never scored and will return zero rows."""
-    try:
-        query = _build_signup_anomalies_query(
-            pds_host, granularity, date, min_q_value, only_anomalies, limit
-        )
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_signup_anomalies_query(
+        pds_host, granularity, date, min_q_value, only_anomalies, limit
+    )
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )
 
 
 @mcp.tool()
+@tool_error_boundary
 async def signup_anomaly_trend(
     pds_host: str,
     days: int = 14,
     limit: int = 500,
 ) -> str:
     """Time series of signup anomaly data for a single PDS host across both granularities (daily and hourly). Shows the full baseline/observed history, not just flagged rows — useful for understanding whether a spike is sustained or a one-off. Ordered chronologically."""
-    try:
-        query = _build_signup_anomaly_trend_query(pds_host, days, limit)
-        result = await get_client().query_trusted(query)
-        return json.dumps(
-            {"query": query, "rows": result.rows, "count": len(result.rows)},
-            indent=2,
-            default=str,
-        )
-    except Exception as e:
-        raise ValueError(str(e)) from e
+    query = _build_signup_anomaly_trend_query(pds_host, days, limit)
+    result = await get_client().query_trusted(query)
+    return json.dumps(
+        {"query": query, "rows": result.rows, "count": len(result.rows)},
+        indent=2,
+        default=str,
+    )

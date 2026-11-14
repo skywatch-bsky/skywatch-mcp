@@ -191,11 +191,11 @@ class TestResponseShapes:
 
     @pytest.mark.asyncio
     async def test_error_handling_raises_value_error(self) -> None:
-        """Test that tool handlers raise ValueError on error, which FastMCP converts to isError response."""
+        """Test that a raw backend crash propagates from the handler; the SDK masks it in wire results."""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_client:
             mock_client.return_value.query.side_effect = Exception("DB error")
 
-            with pytest.raises(ValueError, match="DB error"):
+            with pytest.raises(Exception, match="DB error"):
                 await clickhouse.clickhouse_query("SELECT * FROM test LIMIT 1")
 
     @pytest.mark.asyncio
@@ -239,9 +239,9 @@ class TestInputValidation:
 
     @pytest.mark.asyncio
     async def test_invalid_input_type_rejected_before_handler(self) -> None:
-        """Test AC2.2: FastMCP rejects invalid input types before handler execution."""
+        """Test AC2.2: MCPServer rejects invalid input types before handler execution."""
         from skywatch_mcp.server import mcp
-        from mcp.server.fastmcp.exceptions import ToolError
+        from mcp.server.mcpserver.exceptions import ToolError
 
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool("domain_check", {"domain": 123})
@@ -251,9 +251,9 @@ class TestInputValidation:
 
     @pytest.mark.asyncio
     async def test_missing_required_field_rejected_with_clear_error(self) -> None:
-        """Test AC2.3: FastMCP rejects missing required fields with clear error message."""
+        """Test AC2.3: MCPServer rejects missing required fields with clear error message."""
         from skywatch_mcp.server import mcp
-        from mcp.server.fastmcp.exceptions import ToolError
+        from mcp.server.mcpserver.exceptions import ToolError
 
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool("domain_check", {})

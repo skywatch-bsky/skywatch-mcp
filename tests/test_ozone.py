@@ -13,6 +13,7 @@ from skywatch_mcp.tools.ozone import (
     _build_query_string,
     _build_subject_ref,
 )
+from mcp.server.mcpserver.exceptions import ToolError
 
 
 class TestConfigValidation:
@@ -386,7 +387,7 @@ class TestOzoneReport:
 
         reload(ozone_module)
 
-        with pytest.raises(ValueError, match="Unknown report type"):
+        with pytest.raises(ToolError, match="Unknown report type"):
             await ozone_module.ozone_report(
                 subject="did:plc:test", report_type="bogus", reason="test"
             )
@@ -452,7 +453,7 @@ class TestOzoneReport:
 
         at_uri = "at://did:plc:test/app.bsky.feed.post/abc123"
 
-        with pytest.raises(ValueError, match="AT-URI subjects require a cid parameter"):
+        with pytest.raises(ToolError, match="AT-URI subjects require a cid parameter"):
             await ozone_module.ozone_report(subject=at_uri, report_type="spam", reason="test")
 
         ozone_module._cached_session = {
@@ -593,7 +594,7 @@ class TestQueryTools:
 
         reload(ozone_module)
 
-        with pytest.raises(ValueError, match="Unknown review state"):
+        with pytest.raises(ToolError, match="Unknown review state"):
             await ozone_module.ozone_query_statuses(review_state="bogus")
 
     @pytest.mark.asyncio
@@ -629,13 +630,20 @@ class TestQueryTools:
             assert "tools.ozone.moderation.defs%23modEventComment" in call_args[0][0]
             assert "tools.ozone.moderation.defs%23modEventLabel" in call_args[0][0]
 
-    def test_ozone_query_events_invalid_type(self):
-        with pytest.raises(ValueError, match="Unknown event type"):
-            params = {"types": ["invalid_type"]}
-            for t in params["types"]:
-                mapped = EVENT_TYPE_MAP.get(t)
-                if not mapped:
-                    raise ValueError(f"Unknown event type: {t}")
+    @pytest.mark.asyncio
+    async def test_ozone_query_events_invalid_type(self):
+        """Dispatching through the tool surfaces unknown event types as a public ToolError."""
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        settings = ozone_module.OzoneSettings(
+            handle="moderator@example",
+            admin_password="not-a-real-password",
+            did="did:plc:testmoderator",
+            pds="ozone.example.invalid",
+        )
+        with patch.object(ozone_module, "_settings", settings):
+            with pytest.raises(ToolError, match="Unknown event type"):
+                await ozone_module.ozone_query_events(types=["invalid_type"])
 
 
 class TestEventAndReviewStateMaps:
@@ -688,7 +696,7 @@ class TestToolValidation:
 
         reload(ozone_module)
 
-        with pytest.raises(ValueError, match="At least one of 'add' or 'remove' must be non-empty"):
+        with pytest.raises(ToolError, match="At least one of 'add' or 'remove' must be non-empty"):
             await ozone_module.ozone_tag(subject="did:plc:test")
 
     @pytest.mark.asyncio
