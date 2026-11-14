@@ -630,13 +630,20 @@ class TestQueryTools:
             assert "tools.ozone.moderation.defs%23modEventComment" in call_args[0][0]
             assert "tools.ozone.moderation.defs%23modEventLabel" in call_args[0][0]
 
-    def test_ozone_query_events_invalid_type(self):
-        with pytest.raises(ValueError, match="Unknown event type"):
-            params = {"types": ["invalid_type"]}
-            for t in params["types"]:
-                mapped = EVENT_TYPE_MAP.get(t)
-                if not mapped:
-                    raise ValueError(f"Unknown event type: {t}")
+    @pytest.mark.asyncio
+    async def test_ozone_query_events_invalid_type(self):
+        """Dispatching through the tool surfaces unknown event types as a public ToolError."""
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        settings = ozone_module.OzoneSettings(
+            handle="moderator@example",
+            admin_password="not-a-real-password",
+            did="did:plc:testmoderator",
+            pds="ozone.example.invalid",
+        )
+        with patch.object(ozone_module, "_settings", settings):
+            with pytest.raises(ToolError, match="Unknown event type"):
+                await ozone_module.ozone_query_events(types=["invalid_type"])
 
 
 class TestEventAndReviewStateMaps:

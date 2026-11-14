@@ -7,15 +7,16 @@ Two error classes reach clients differently:
 - ``ToolInputError`` marks *safe* validation/configuration failures raised by
   this codebase (bad dates, out-of-range limits, unknown enum values, missing
   Ozone configuration, malformed subjects). ``tool_error_boundary`` translates
-  them into the SDK's ``ToolError`` so their message reaches the calling model
-  verbatim.
+  them into the SDK's ``ToolError``, whose message is carried to the client
+  prefixed as ``Error executing tool <name>: <message>``.
 - Every other exception is *unexpected*: the SDK masks its message on the wire
   and returns a generic ``Error executing tool <name>`` result. Backend
   response bodies (which may embed tokens, credentials, or subject data) must
   stay on that masked path, so the boundary deliberately does not rewrap them.
 
 Known timeout/connectivity failures are translated to fixed, detail-free
-messages because their class alone is actionable.
+messages because their class alone is actionable; exception text is never
+forwarded from those paths.
 """
 
 import functools
@@ -63,9 +64,9 @@ def tool_error_boundary(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[
         except ToolError:
             raise
         except TimeoutError as exc:
-            # Raised with a fixed, secret-free message by ClickHouseClient;
-            # bare asyncio timeouts carry no text, so fall back to a fixed one.
-            raise ToolError(str(exc) or _TIMEOUT_MESSAGE) from exc
+            # Fixed message only: a future raiser's TimeoutError text could name
+            # hosts or embed request data, so no exception text is forwarded.
+            raise ToolError(_TIMEOUT_MESSAGE) from exc
         except httpx.TimeoutException as exc:
             raise ToolError(_TIMEOUT_MESSAGE) from exc
         except httpx.ConnectError as exc:

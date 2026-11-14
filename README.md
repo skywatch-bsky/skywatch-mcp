@@ -2,7 +2,7 @@
 
 skywatch-mcp is an MCP server built on the official [Model Context Protocol Python SDK](https://pypi.org/project/mcp/) for investigators and moderators who examine activity on the AT Protocol / Bluesky network. Its 33 tools cover ClickHouse analytics, network lookups, content similarity, co-sharing analysis, anomaly results, and Ozone moderation.
 
-The server speaks the MCP `2026-07-28` protocol. Modern clients discover it without an initialize handshake; older clients that initialize with the `2025-11-25` handshake (or earlier) still work unchanged. The same launch command serves both.
+The server speaks the MCP `2026-07-28` protocol. Modern clients discover it without an initialize handshake; older clients that initialize with one of the SDK's handshake versions (`2024-11-05` through `2025-11-25`) still work unchanged. The same launch command serves both.
 
 Draws heavily on [Phoebe by haileyok](https://github.com/haileyok/phoebe).
 

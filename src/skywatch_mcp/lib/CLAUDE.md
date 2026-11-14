@@ -9,7 +9,7 @@ Pure utility code with no MCP or framework dependency. These are the Functional 
 
 ### tool_errors
 - **Exposes**: `ToolInputError(ValueError)`, `tool_error_boundary(fn)` async decorator
-- **Guarantees**: The boundary translates `ToolInputError` to the SDK's `ToolError` with the message intact; `TimeoutError`, `httpx.TimeoutException`, and `httpx.ConnectError` become fixed detail-free `ToolError` messages; every other exception propagates unchanged so the SDK masks it. `functools.wraps` preserves the handler signature for schema discovery.
+- **Guarantees**: The boundary translates `ToolInputError` to the SDK's `ToolError`, whose message reaches clients prefixed as `Error executing tool <name>: <message>`; `TimeoutError`, `httpx.TimeoutException`, and `httpx.ConnectError` become fixed detail-free `ToolError` messages; every other exception propagates unchanged so the SDK masks it. `functools.wraps` preserves the handler signature for schema discovery.
 - **Expects**: Applied directly beneath `@mcp.tool()` on every tool
 
 ### clickhouse_client

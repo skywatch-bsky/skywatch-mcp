@@ -32,7 +32,7 @@ Last verified: 2026-11-14
 - All tools register on the shared `mcp` instance from `server.py`
 - Tool functions return JSON strings. This is a compatibility convention, not a protocol requirement: the SDK wraps each string into text content plus a `{"result": <string>}` structured payload. Changing a tool to return a dict changes its output shape and its clients.
 - Error boundary (`src/skywatch_mcp/lib/tool_errors.py`): every tool sits under `@tool_error_boundary` (below `@mcp.tool()`). Safe validation/configuration failures raise `ToolInputError` (a `ValueError` subclass) and reach clients as SDK `ToolError` with an actionable message. Unexpected exceptions, including backend failures that embed response bodies, are never rewrapped; the SDK masks them to `Error executing tool <name>`. Known timeouts/connectivity failures get fixed detail-free messages.
-- Pure helpers (`lib/sanitizers.py`, query builders, `_build_subject_ref`) raise `ToolInputError`/`ValueError` directly; the translation happens only at the tool boundary.
+- Pure helpers (`lib/sanitizers.py`, query builders, `_build_subject_ref`) raise `ToolInputError` for user-facing input problems; the boundary translates only `ToolInputError`. A plain `ValueError` is masked by the SDK like any backend failure, so never raise plain `ValueError` for messages clients need to read.
 - ClickHouse queries from user input go through `query()` (validated); internal queries use `query_trusted()`
 - Ozone tools use module-level session cache with auto-refresh on ExpiredToken
 
