@@ -9,7 +9,7 @@ class TestServerToolRegistration:
         tools = await mcp.list_tools()
         tool_names = {tool.name for tool in tools}
 
-        assert len(tools) == 32, f"Expected 32 tools, got {len(tools)}"
+        assert len(tools) == 33, f"Expected 33 tools, got {len(tools)}"
 
         expected_tools = {
             "clickhouse_query",
@@ -42,6 +42,7 @@ class TestServerToolRegistration:
             "ozone_mute",
             "ozone_unmute",
             "ozone_resolve_appeal",
+            "ozone_report",
             "ozone_query_statuses",
             "ozone_query_events",
         }

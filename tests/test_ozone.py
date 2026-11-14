@@ -7,6 +7,7 @@ import pytest
 
 from skywatch_mcp.tools.ozone import (
     EVENT_TYPE_MAP,
+    REPORT_TYPE_MAP,
     REVIEW_STATE_MAP,
     _build_mod_tool,
     _build_query_string,
@@ -289,6 +290,230 @@ class TestToolHandlers:
             assert result_dict["label"] == "violation"
 
 
+class TestOzoneReport:
+    @pytest.mark.asyncio
+    async def test_ozone_report_maps_friendly_report_type(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "321", "eventType": "tools.ozone.moderation.defs#modEventReport"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            result = await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Account posts spam links daily",
+            )
+
+            result_dict = json.loads(result)
+            assert result_dict["id"] == "321"
+
+            call_args = async_client_mock.post.call_args
+            assert "tools.ozone.moderation.emitEvent" in call_args[0][0]
+            request_body = call_args[1]["json"]
+            assert request_body["event"]["$type"] == "tools.ozone.moderation.defs#modEventReport"
+            assert request_body["event"]["reportType"] == "com.atproto.moderation.defs#reasonSpam"
+            assert request_body["event"]["comment"] == "Account posts spam links daily"
+            assert request_body["subject"]["$type"] == "com.atproto.admin.defs#repoRef"
+            assert request_body["subject"]["did"] == "did:plc:test"
+            assert request_body["createdBy"] == "did:plc:test"
+            assert request_body["modTool"]["name"] == "skywatch-mcp"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_passes_through_full_qualified_reason(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "322"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="tools.ozone.report.defs#reasonMisleadingSpam",
+                reason="Coordinated misleading spam network",
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["event"]["reportType"] == "tools.ozone.report.defs#reasonMisleadingSpam"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_rejects_invalid_report_type(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        with pytest.raises(ValueError, match="Unknown report type"):
+            await ozone_module.ozone_report(
+                subject="did:plc:test", report_type="bogus", reason="test"
+            )
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_is_reporter_muted_conditional(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "323"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Reporter already muted",
+                is_reporter_muted=True,
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["event"]["isReporterMuted"] is True
+
+            async_client_mock.reset_mock()
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Default call omits the flag",
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert "isReporterMuted" not in request_body["event"]
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_at_uri_subject_requires_cid(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        at_uri = "at://did:plc:test/app.bsky.feed.post/abc123"
+
+        with pytest.raises(ValueError, match="AT-URI subjects require a cid parameter"):
+            await ozone_module.ozone_report(subject=at_uri, report_type="spam", reason="test")
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "324"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject=at_uri, report_type="spam", reason="test", cid="bafy123abc"
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["subject"]["$type"] == "com.atproto.repo.strongRef"
+            assert request_body["subject"]["uri"] == at_uri
+            assert request_body["subject"]["cid"] == "bafy123abc"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_batch_id_in_mod_tool(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "325"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test", report_type="spam", reason="test", batch_id="abc"
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["modTool"]["meta"]["batchId"] == "abc"
+
+
 class TestQueryTools:
     @pytest.mark.asyncio
     async def test_ozone_query_statuses_maps_review_state(self, monkeypatch):
@@ -446,6 +671,13 @@ class TestEventAndReviewStateMaps:
             assert key in EVENT_TYPE_MAP
             value = EVENT_TYPE_MAP[key]
             assert value.startswith("tools.ozone.moderation.defs#")
+
+    def test_report_type_map_all_keys_valid(self):
+        expected_keys = ["spam", "violation", "misleading", "sexual", "rude", "other", "appeal"]
+        for key in expected_keys:
+            assert key in REPORT_TYPE_MAP
+            value = REPORT_TYPE_MAP[key]
+            assert value.startswith("com.atproto.moderation.defs#")
 
 
 class TestToolValidation:

@@ -43,6 +43,16 @@ EVENT_TYPE_MAP = {
     "recordEvent": "tools.ozone.moderation.defs#recordEvent",
 }
 
+REPORT_TYPE_MAP = {
+    "spam": "com.atproto.moderation.defs#reasonSpam",
+    "violation": "com.atproto.moderation.defs#reasonViolation",
+    "misleading": "com.atproto.moderation.defs#reasonMisleading",
+    "sexual": "com.atproto.moderation.defs#reasonSexual",
+    "rude": "com.atproto.moderation.defs#reasonRude",
+    "other": "com.atproto.moderation.defs#reasonOther",
+    "appeal": "com.atproto.moderation.defs#reasonAppeal",
+}
+
 
 def _validate_ozone_config() -> str | None:
     if not _settings.is_configured:
@@ -368,6 +378,45 @@ async def ozone_resolve_appeal(
     """Resolve an appeal on a subject by providing a required explanation."""
     event = {"$type": "tools.ozone.moderation.defs#modEventResolveAppeal"}
     return await _emit_ozone_event(subject, event, cid=cid, comment=comment, batch_id=batch_id)
+
+
+@mcp.tool()
+async def ozone_report(
+    subject: str,
+    report_type: str,
+    reason: str,
+    cid: str | None = None,
+    batch_id: str | None = None,
+    is_reporter_muted: bool = False,
+) -> str:
+    """File a moderation report on a subject via the Ozone moderation service (modEventReport).
+
+    Args:
+        subject: DID (did:plc:...) or AT-URI (at://...) of the subject.
+        report_type: Report reason. Use a friendly name ("spam", "violation", "misleading", "sexual", "rude", "other", "appeal") or a full reason NSID such as "com.atproto.moderation.defs#reasonSpam" or "tools.ozone.report.defs#reasonMisleadingSpam".
+        reason: Free-text explanation of the report; stored as the report event's comment.
+        cid: Required when subject is an AT-URI. The CID of the record.
+        batch_id: Optional UUID to group related moderation operations.
+        is_reporter_muted: Set true only if the reporter was muted from reporting; such reports do not change the subject's review state.
+    """
+    if report_type in REPORT_TYPE_MAP:
+        resolved_report_type = REPORT_TYPE_MAP[report_type]
+    elif "#" in report_type:
+        resolved_report_type = report_type
+    else:
+        raise ValueError(
+            f"Unknown report type: {report_type}. "
+            "Valid friendly names: spam, violation, misleading, sexual, rude, other, appeal. "
+            "Full reason NSIDs (e.g. tools.ozone.report.defs#reasonMisleadingSpam) are also accepted."
+        )
+
+    event = {
+        "$type": "tools.ozone.moderation.defs#modEventReport",
+        "reportType": resolved_report_type,
+        "comment": reason,
+        **({"isReporterMuted": True} if is_reporter_muted else {}),
+    }
+    return await _emit_ozone_event(subject, event, cid=cid, batch_id=batch_id)
 
 
 @mcp.tool()

@@ -1,12 +1,12 @@
 # MCP Tools
 
-Last verified: 2026-07-09
+Last verified: 2026-11-14
 
 ## Purpose
 Expose AT Protocol investigation and moderation capabilities as MCP tools. Each module registers tools on the shared `mcp` FastMCP instance via decorator side-effects at import time.
 
 ## Contracts
-- **Exposes**: 32 MCP tools across 12 modules
+- **Exposes**: 33 MCP tools across 12 modules
 - **Guarantees**: All tools return JSON strings. All errors raise `ValueError`.
 - **Expects**: `server.mcp` must be instantiated before tool module imports
 
@@ -19,7 +19,7 @@ Expose AT Protocol investigation and moderation capabilities as MCP tools. Each 
 | cosharing | `cosharing_clusters`, `cosharing_pairs`, `cosharing_evolution`, `cosharing_runs`, `quote_cosharing_clusters`, `quote_cosharing_pairs`, `quote_cosharing_evolution` | ClickHouse (via lib) |
 | domain | `domain_check` | DNS (dnspython), HTTP |
 | ip | `ip_lookup` | ip-api.com |
-| ozone | `ozone_label`, `ozone_comment`, `ozone_acknowledge`, `ozone_escalate`, `ozone_tag`, `ozone_mute`, `ozone_unmute`, `ozone_resolve_appeal`, `ozone_query_statuses`, `ozone_query_events` | Ozone API via PDS proxy |
+| ozone | `ozone_label`, `ozone_comment`, `ozone_acknowledge`, `ozone_escalate`, `ozone_tag`, `ozone_mute`, `ozone_unmute`, `ozone_resolve_appeal`, `ozone_report`, `ozone_query_statuses`, `ozone_query_events` | Ozone API via PDS proxy |
 | quote_overdispersion | `quote_overdispersion_results`, `quote_overdispersion_trend` | ClickHouse (via lib) |
 | signup_anomaly | `signup_anomalies`, `signup_anomaly_trend` | ClickHouse (via lib) |
 | url | `url_expand` | HTTP (follows redirects) |

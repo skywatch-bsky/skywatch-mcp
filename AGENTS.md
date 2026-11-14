@@ -22,10 +22,10 @@ Last verified: 2026-11-14
 ## Project Structure
 - `src/skywatch_mcp/server.py` -- FastMCP app, registers all tool modules via import side-effects
 - `src/skywatch_mcp/config.py` -- ClickHouseSettings and OzoneSettings (pydantic-settings, env vars)
-- `src/skywatch_mcp/tools/` -- MCP tool functions (12 modules, 32 tools): ClickHouse analytics, reputation lookups (domain, IP, URL, WHOIS, content similarity), Ozone moderation, statistical anomaly detection (account_entropy, signup_anomaly, cosharing, quote_overdispersion, url_overdispersion)
+- `src/skywatch_mcp/tools/` -- MCP tool functions (12 modules, 33 tools): ClickHouse analytics, reputation lookups (domain, IP, URL, WHOIS, content similarity), Ozone moderation, statistical anomaly detection (account_entropy, signup_anomaly, cosharing, quote_overdispersion, url_overdispersion)
 - `src/skywatch_mcp/lib/` -- Reusable helpers: SQL validation, WHOIS parsing, URL shortener list, ClickHouse client, Ozone API client (`OzoneClient` in `ozone_api.py`: cached sessions, auto-refresh on ExpiredToken)
 - `src/skywatch_mcp/models/` -- Empty, reserved for future Pydantic models
-- `tests/` -- 470 tests, no external service dependencies
+- `tests/` -- 477 tests, no external service dependencies
 
 ## Conventions
 - Functional Core / Imperative Shell pattern (annotated with `# pattern:` comments)
