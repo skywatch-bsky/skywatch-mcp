@@ -123,17 +123,17 @@ Name Server:    ns1.example.com
         assert "ns1.example.com" in result.nameservers[0]
 
     def test_expiration_date_alternatives(self):
-        # Test "Expiration Date:" variant
+        # Check the first expiration field spelling.
         text1 = "Expiration Date: 2025-01-01T00:00:00Z"
         result1 = parse_whois_response(text1)
         assert result1.expiration_date is not None
 
-        # Test "Registry Expiry Date:" variant
+        # Check the registry-specific spelling.
         text2 = "Registry Expiry Date: 2025-01-01T00:00:00Z"
         result2 = parse_whois_response(text2)
         assert result2.expiration_date is not None
 
-        # Test "expires:" variant
+        # Check the short `expires` spelling.
         text3 = "expires: 2025-01-01T00:00:00Z"
         result3 = parse_whois_response(text3)
         assert result3.expiration_date is not None

@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 @pytest.fixture
 def mock_http_client():
-    """Fixture to provide a properly mocked httpx AsyncClient"""
     with patch("skywatch_mcp.tools.domain.httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -17,7 +16,6 @@ def mock_http_client():
 
 @pytest.fixture
 def mock_dns_resolver():
-    """Fixture to provide a properly mocked dns async resolver"""
     with patch("skywatch_mcp.tools.domain.dns.asyncresolver.Resolver") as mock_resolver_class:
         mock_resolver = AsyncMock()
         mock_resolver_class.return_value = mock_resolver
@@ -223,9 +221,7 @@ class TestDomainCheck:
 
         await domain_check("example.com")
 
-        # Verify async resolver was instantiated and used
         mock_resolver_class.assert_called_once()
-        # Verify resolve was called 7 times (once per record type)
         assert mock_resolver.resolve.call_count == 7
 
     @pytest.mark.asyncio
@@ -236,7 +232,6 @@ class TestDomainCheck:
         mock_resolver, _ = mock_dns_resolver
         mock_client, _ = mock_http_client
 
-        # Simulate DNS error on first resolve
         mock_resolver.resolve.side_effect = Exception("DNS resolution failed")
 
         from skywatch_mcp.tools.domain import domain_check
@@ -256,7 +251,6 @@ class TestDomainCheck:
             def __str__(self):
                 return "192.0.2.1"
 
-        # Only A record exists, all others return empty
         mock_resolver.resolve.side_effect = [
             [MockARecord()],
             [],

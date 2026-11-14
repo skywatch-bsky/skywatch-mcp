@@ -89,7 +89,6 @@ class TestContentSimilarityTool:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
 
-            # Mock query result
             mock_result = QueryResult(
                 columns=[
                     {"name": "user", "type": "String"},
@@ -149,7 +148,6 @@ class TestContentSimilarityTool:
 
             await content_similarity("it's a test")
 
-            # Verify the query passed contains escaped quote
             call_args = mock_client.query_trusted.call_args
             query = call_args[0][0]
             assert "it\\'s a test" in query
@@ -270,7 +268,6 @@ class TestContentSimilarityTool:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
 
-            # Mock row with various types
             mock_result = QueryResult(
                 columns=[],
                 rows=[
@@ -290,6 +287,5 @@ class TestContentSimilarityTool:
             import json
 
             parsed = json.loads(result)
-            # All values should be JSON-serializable
             assert isinstance(parsed[0]["score"], float)
             assert isinstance(parsed[0]["user"], str)

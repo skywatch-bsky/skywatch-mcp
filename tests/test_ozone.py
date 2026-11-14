@@ -21,7 +21,6 @@ class TestConfigValidation:
         monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "")
         monkeypatch.setenv("OZONE_DID", "")
 
-        # Need to reimport to pick up env changes
         from importlib import reload
         import skywatch_mcp.tools.ozone as ozone_module
 
@@ -153,7 +152,6 @@ class TestSessionManagement:
 
         reload(ozone_module)
 
-        # Set cached session
         ozone_module._cached_session = {
             "accessJwt": "cached_token",
             "refreshJwt": "refresh_token",
@@ -176,24 +174,20 @@ class TestTokenRefresh:
 
         reload(ozone_module)
 
-        # Set initial cached session
         ozone_module._cached_session = {
             "accessJwt": "expired_token",
             "refreshJwt": "refresh_token",
         }
 
-        # First response: ExpiredToken error
         expired_response = MagicMock()
         expired_response.is_success = False
         expired_response.status_code = 401
         expired_response.text = "ExpiredToken"
 
-        # Second response (after refresh): success
         success_response = MagicMock()
         success_response.is_success = True
         success_response.text = '{"result": "ok"}'
 
-        # Refresh session response
         refresh_response = MagicMock()
         refresh_response.status_code = 200
         refresh_response.json.return_value = {
@@ -206,7 +200,6 @@ class TestTokenRefresh:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            # Set up side effects for multiple calls
             async_client_mock.post.side_effect = [
                 expired_response,
                 refresh_response,
@@ -326,7 +319,6 @@ class TestQueryTools:
 
             await ozone_module.ozone_query_statuses(review_state="open")
 
-            # Verify the call was made with correct query string
             call_args = async_client_mock.get.call_args
             assert "tools.ozone.moderation.defs%23reviewOpen" in call_args[0][0]
 
@@ -408,7 +400,6 @@ class TestQueryTools:
 
             await ozone_module.ozone_query_events(types=["comment", "label"])
 
-            # Verify the call was made with correct query string
             call_args = async_client_mock.get.call_args
             assert "tools.ozone.moderation.defs%23modEventComment" in call_args[0][0]
             assert "tools.ozone.moderation.defs%23modEventLabel" in call_args[0][0]
@@ -530,21 +521,17 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            # Test with acknowledge_account_subjects=True
-            result = await ozone_module.ozone_acknowledge(
+            await ozone_module.ozone_acknowledge(
                 subject="did:plc:test", acknowledge_account_subjects=True
             )
 
-            result_dict = json.loads(result)
-            # Verify the event body was sent with correct $type and field
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
             assert request_body["event"]["$type"] == "tools.ozone.moderation.defs#modEventAcknowledge"
             assert request_body["event"]["acknowledgeAccountSubjects"] is True
 
-            # Test with acknowledge_account_subjects=False (default)
             async_client_mock.reset_mock()
-            result = await ozone_module.ozone_acknowledge(subject="did:plc:test")
+            await ozone_module.ozone_acknowledge(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -579,7 +566,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_escalate(subject="did:plc:test")
+            await ozone_module.ozone_escalate(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -613,7 +600,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_mute(
+            await ozone_module.ozone_mute(
                 subject="did:plc:test", duration_in_hours=24.5
             )
 
@@ -650,7 +637,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_unmute(subject="did:plc:test")
+            await ozone_module.ozone_unmute(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -685,7 +672,7 @@ class TestMissingToolCoverage:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
             test_comment = "Appeal resolved with explanation"
-            result = await ozone_module.ozone_resolve_appeal(
+            await ozone_module.ozone_resolve_appeal(
                 subject="did:plc:test", comment=test_comment
             )
 
@@ -707,7 +694,6 @@ class TestMissingToolCoverage:
 
         reload(ozone_module)
 
-        # Clear cache before test
         ozone_module._cached_session = None
 
         mock_response = MagicMock()

@@ -8,10 +8,8 @@ from skywatch_mcp.lib.clickhouse_client import QueryResult
 
 
 class TestBuildClustersQuery:
-    """Test SQL query building for cosharing_clusters"""
 
     def test_build_clusters_query_by_did_should_include_join(self):
-        """_build_clusters_query with did should join membership and clusters tables"""
         from skywatch_mcp.tools.cosharing import _build_clusters_query
 
         query = _build_clusters_query(did="did:plc:test", limit=20)
@@ -22,7 +20,6 @@ class TestBuildClustersQuery:
         assert "m.did = 'did:plc:test'" in query
 
     def test_build_clusters_query_by_did_without_date_uses_yesterday(self):
-        """_build_clusters_query without date should use yesterday() function"""
         from skywatch_mcp.tools.cosharing import _build_clusters_query
 
         query = _build_clusters_query(did="did:plc:test", limit=20)
@@ -149,7 +146,6 @@ class TestBuildClustersQuery:
 
 
 class TestBuildPairsQuery:
-    """Test SQL query building for cosharing_pairs"""
 
     def test_build_pairs_query_should_check_both_accounts(self):
         """_build_pairs_query should check account_a OR account_b"""
@@ -223,7 +219,6 @@ class TestBuildPairsQuery:
 
 
 class TestBuildEvolutionQuery:
-    """Test SQL query building for cosharing_evolution"""
 
     def test_build_evolution_query_should_match_cluster_id(self):
         """_build_evolution_query should include cluster_id = filter"""
@@ -695,7 +690,6 @@ class TestBuildCosharingRunsQuery:
 
 
 class TestBuildQuoteClustersQuery:
-    """Test SQL query building for quote_cosharing_clusters"""
 
     def test_build_quote_clusters_query_by_did_should_include_join(self):
         from skywatch_mcp.tools.cosharing import _build_quote_clusters_query
@@ -801,7 +795,6 @@ class TestBuildQuoteClustersQuery:
 
 
 class TestBuildQuotePairsQuery:
-    """Test SQL query building for quote_cosharing_pairs"""
 
     def test_build_quote_pairs_query_should_check_both_accounts(self):
         from skywatch_mcp.tools.cosharing import _build_quote_pairs_query
@@ -867,7 +860,6 @@ class TestBuildQuotePairsQuery:
 
 
 class TestBuildQuoteEvolutionQuery:
-    """Test SQL query building for quote_cosharing_evolution"""
 
     def test_build_quote_evolution_query_should_match_cluster_id(self):
         from skywatch_mcp.tools.cosharing import _build_quote_evolution_query

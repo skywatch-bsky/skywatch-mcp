@@ -1,5 +1,3 @@
-"""Test response JSON shapes match expected TS output structure."""
-
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,7 +7,6 @@ from skywatch_mcp.tools import clickhouse, content, cosharing, domain, ip, url, 
 
 
 class TestResponseShapes:
-    """Verify response JSON structures match TS output."""
 
     @pytest.mark.asyncio
     async def test_clickhouse_query_response_shape(self) -> None:
@@ -223,7 +220,7 @@ class TestResponseShapes:
             }
             mock_parse.return_value = mock_parsed
 
-            # Make asdict work with the mock
+            # asdict requires the mocked result to be dataclass-compatible.
             with patch("skywatch_mcp.tools.whois.asdict", return_value=mock_parsed_dict):
                 result_json = await whois.whois_lookup("example.com")
                 result = json.loads(result_json)
@@ -246,11 +243,9 @@ class TestInputValidation:
         from skywatch_mcp.server import mcp
         from mcp.server.fastmcp.exceptions import ToolError
 
-        # domain_check expects domain as a string, not an int
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool("domain_check", {"domain": 123})
 
-        # Verify the error is about type validation, not from handler execution
         error_message = str(exc_info.value)
         assert "Input should be a valid string" in error_message or "type=string_type" in error_message
 
@@ -260,10 +255,8 @@ class TestInputValidation:
         from skywatch_mcp.server import mcp
         from mcp.server.fastmcp.exceptions import ToolError
 
-        # domain_check requires domain parameter
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool("domain_check", {})
 
-        # Verify the error message is clear about the missing field
         error_message = str(exc_info.value)
         assert "Field required" in error_message or "missing" in error_message.lower()

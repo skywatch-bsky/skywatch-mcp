@@ -9,7 +9,6 @@ import httpx
 
 @pytest.fixture
 def mock_http_client():
-    """Fixture to provide a properly mocked httpx AsyncClient"""
     with patch("skywatch_mcp.tools.url.httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -94,11 +93,9 @@ class TestURLExpand:
 
         from skywatch_mcp.tools.url import url_expand
 
-        # Use a known shortener domain
         result = await url_expand("https://bit.ly/abc123")
         data = json.loads(result)
 
-        # Verify first hop is marked as shortener
         assert data["hops"][0]["isShortener"] is True
 
     @pytest.mark.asyncio
@@ -106,7 +103,6 @@ class TestURLExpand:
         """url_expand should return error when max 15 hops exceeded"""
         mock_client, _ = mock_http_client
 
-        # Create 15 redirect responses (all 301)
         responses = []
         for i in range(15):
             response = MagicMock()
@@ -163,7 +159,6 @@ class TestURLExpand:
 
         await url_expand("https://example.com")
 
-        # Verify AsyncClient was instantiated with correct parameters
         mock_client_class.assert_called_once_with(timeout=5.0, follow_redirects=False)
 
     @pytest.mark.asyncio
@@ -171,7 +166,6 @@ class TestURLExpand:
         """url_expand should handle exception when client.head() raises"""
         mock_client, _ = mock_http_client
 
-        # Simulate a general exception (not timeout) during head request
         mock_client.head.side_effect = [
             Exception("Connection reset"),
         ]
@@ -181,7 +175,6 @@ class TestURLExpand:
         result = await url_expand("https://example.com")
         data = json.loads(result)
 
-        # Should have recorded the error with statusCode=0
         assert data["hopCount"] == 1
         assert data["hops"][0]["statusCode"] == 0
         assert data["hops"][0]["location"] is None
@@ -213,7 +206,7 @@ class TestURLExpand:
 
         response1 = MagicMock()
         response1.status_code = 301
-        # Relative redirect
+        # A relative location must resolve against the current URL.
         response1.headers = {"location": "/final-page"}
 
         response2 = MagicMock()
@@ -227,7 +220,6 @@ class TestURLExpand:
         result = await url_expand("https://example.com/original")
         data = json.loads(result)
 
-        # urljoin should resolve /final-page relative to https://example.com/original
         assert data["hops"][0]["location"] == "https://example.com/final-page"
         assert data["hopCount"] == 2
 
