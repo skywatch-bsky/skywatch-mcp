@@ -1,6 +1,6 @@
 # skywatch-mcp
 
-skywatch-mcp is a FastMCP server for investigators and moderators who examine activity on the AT Protocol / Bluesky network. Its 32 tools cover ClickHouse analytics, network lookups, content similarity, co-sharing analysis, anomaly results, and Ozone moderation.
+skywatch-mcp is a FastMCP server for investigators and moderators who examine activity on the AT Protocol / Bluesky network. Its 33 tools cover ClickHouse analytics, network lookups, content similarity, co-sharing analysis, anomaly results, and Ozone moderation.
 
 Draws heavily on [Phoebe by haileyok](https://github.com/haileyok/phoebe).
 
@@ -132,7 +132,7 @@ Ozone write tools change moderation state. Review the subject and action before 
 
 ## Tool inventory
 
-The server registers 32 tools from 12 modules in `src/skywatch_mcp/tools/`. The descriptions below summarize the opening descriptions in their docstrings.
+The server registers 33 tools from 12 modules in `src/skywatch_mcp/tools/`. The descriptions below summarize the opening descriptions in their docstrings.
 
 ### ClickHouse (2)
 
@@ -197,7 +197,7 @@ These tools return statistical signals of regular, bot-like posting patterns. Th
 | `signup_anomalies` | Get anomalous PDS signup spikes from negative-binomial/Poisson tests with Benjamini–Hochberg false-discovery-rate correction. |
 | `signup_anomaly_trend` | Get signup anomaly history for one PDS host at daily and hourly intervals. |
 
-### Ozone moderation (10)
+### Ozone moderation (11)
 
 | Tool | Description |
 | --- | --- |
@@ -209,5 +209,6 @@ These tools return statistical signals of regular, bot-like posting patterns. Th
 | `ozone_mute` | Temporarily suppress notifications and queue visibility for a subject. |
 | `ozone_unmute` | Unmute a previously muted subject. |
 | `ozone_resolve_appeal` | Resolve an appeal on a subject with a required explanation. |
+| `ozone_report` | File a moderation report on a subject through Ozone. |
 | `ozone_query_statuses` | Query subject statuses from the Ozone moderation queue with optional filters and pagination. |
 | `ozone_query_events` | Query moderation events from Ozone with optional filters and pagination. |
