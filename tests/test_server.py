@@ -1,4 +1,6 @@
 import pytest
+from unittest.mock import patch
+
 from skywatch_mcp.server import mcp
 
 
@@ -55,6 +57,27 @@ class TestServerToolRegistration:
         from skywatch_mcp.server import main
 
         assert callable(main), "main should be callable"
+
+    def test_main_defaults_to_stdio_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Without SKYWATCH_TRANSPORT, main launches the stdio transport."""
+        monkeypatch.delenv("SKYWATCH_TRANSPORT", raising=False)
+        from skywatch_mcp import server as server_module
+
+        with patch.object(server_module.mcp, "run") as mock_run:
+            server_module.main()
+
+        mock_run.assert_called_once_with(transport="stdio")
+
+    def test_main_dispatches_streamable_http(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """SKYWATCH_TRANSPORT=http serves streamable HTTP with the configured bind address."""
+        monkeypatch.setenv("SKYWATCH_TRANSPORT", "http")
+        monkeypatch.setenv("SKYWATCH_PORT", "9000")
+        from skywatch_mcp import server as server_module
+
+        with patch.object(server_module.mcp, "run") as mock_run:
+            server_module.main()
+
+        mock_run.assert_called_once_with(transport="streamable-http", host="127.0.0.1", port=9000)
 
 
 class TestServerImports:

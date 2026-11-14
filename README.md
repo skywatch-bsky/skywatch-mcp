@@ -66,6 +66,18 @@ With ClickHouse configured, ask the client to call `clickhouse_schema`. A succes
 
 To stop the server, disconnect it through the client's MCP controls. If you started the command in a terminal, press `Ctrl+C`.
 
+## Serve over HTTP
+
+The same entry point serves MCP over streamable HTTP when you set `SKYWATCH_TRANSPORT=http`:
+
+```bash
+SKYWATCH_TRANSPORT=http uv run skywatch-mcp
+```
+
+HTTP mode runs one long-lived server process that many clients attach to and detach from without killing it, instead of the one-process-per-client stdio mode. Set `SKYWATCH_HOST` and `SKYWATCH_PORT` to change the bind address; the defaults are `127.0.0.1:8000`, and clients connect to `http://<host>:<port>/mcp`.
+
+The server does not implement authentication. HTTP mode exposes tools that run read-only SQL against ClickHouse and perform real Ozone moderation actions, so keep the listener on a trusted network and put authentication in front of it before exposing it more widely.
+
 ## Developer setup
 
 Use Python 3.12+ and uv. Ruff targets `py312`. Mypy uses `python_version = "3.12"` and strict mode, equivalent to `--strict`.

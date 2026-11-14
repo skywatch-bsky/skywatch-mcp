@@ -1,5 +1,7 @@
 # pattern: Functional Core
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
@@ -33,3 +35,13 @@ class OzoneSettings(BaseSettings):
     @property
     def is_configured(self) -> bool:
         return all([self.handle, self.admin_password, self.did, self.pds])
+
+
+class ServerSettings(BaseSettings):
+    """Server process settings. ``transport="http"`` serves streamable HTTP instead of stdio."""
+
+    model_config = SettingsConfigDict(env_prefix="SKYWATCH_", env_file=".env", extra="ignore")
+
+    transport: Literal["stdio", "http"] = Field(default="stdio")
+    host: str = Field(default="127.0.0.1")
+    port: int = Field(default=8000)

@@ -4,7 +4,7 @@ Last verified: 2026-11-14
 
 ## Tech Stack
 - Language: Python 3.12+, strict mypy
-- Framework: MCP Python SDK (`mcp` 2.3, `MCPServer` from `mcp.server`), stdio transport, MCP 2026-07-28 with 2025-11-25 legacy support
+- Framework: MCP Python SDK (`mcp` 2.3, `MCPServer` from `mcp.server`), stdio default with optional streamable HTTP (`SKYWATCH_TRANSPORT=http`), MCP 2026-07-28 with 2025-11-25 legacy support
 - Database: ClickHouse (read-only analytics queries)
 - External APIs: Ozone (AT Protocol moderation), ip-api.com, python-whois
 - HTTP: httpx (async)
@@ -18,6 +18,7 @@ Last verified: 2026-11-14
 - `uv run mypy src/` -- type check
 - `uv run ruff check src/ tests/` -- lint
 - `uv run skywatch-mcp` -- start server (stdio transport)
+- `SKYWATCH_TRANSPORT=http uv run skywatch-mcp` -- start server (streamable HTTP, host/port via `SKYWATCH_HOST`/`SKYWATCH_PORT`)
 
 ## Project Structure
 - `src/skywatch_mcp/server.py` -- MCPServer app, registers all tool modules via import side-effects
@@ -37,6 +38,7 @@ Last verified: 2026-11-14
 - Ozone tools use module-level session cache with auto-refresh on ExpiredToken
 
 ## Environment Variables
+- `SKYWATCH_TRANSPORT` (`stdio`|`http`, default `stdio`), `SKYWATCH_HOST` (default `127.0.0.1`), `SKYWATCH_PORT` (default `8000`) -- server process settings (`ServerSettings`)
 - `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_TAILNET_IP`
 - `OZONE_HANDLE`, `OZONE_ADMIN_PASSWORD`, `OZONE_DID`, `OZONE_PDS` -- required for Ozone tools (`OzoneSettings.is_configured`)
 - `OZONE_SERVICE_URL` -- defined in `OzoneSettings` but currently unused; Ozone requests go to `https://<OZONE_PDS>/xrpc/...`

@@ -238,3 +238,60 @@ class TestOzoneSettings:
 
         oz = OzoneSettings()
         assert oz.is_configured is True
+
+
+class TestServerSettings:
+    """Server process configuration (transport, bind address)."""
+
+    def test_default_transport_stdio(self, monkeypatch: MonkeyPatch) -> None:
+        """Default transport is stdio, so existing client configs keep working."""
+        monkeypatch.delenv("SKYWATCH_TRANSPORT", raising=False)
+        from skywatch_mcp.config import ServerSettings
+
+        settings = ServerSettings()
+        assert settings.transport == "stdio"
+
+    def test_default_host(self, monkeypatch: MonkeyPatch) -> None:
+        """Default host binds to loopback only."""
+        monkeypatch.delenv("SKYWATCH_HOST", raising=False)
+        from skywatch_mcp.config import ServerSettings
+
+        settings = ServerSettings()
+        assert settings.host == "127.0.0.1"
+
+    def test_default_port(self, monkeypatch: MonkeyPatch) -> None:
+        """Default port is 8000."""
+        monkeypatch.delenv("SKYWATCH_PORT", raising=False)
+        from skywatch_mcp.config import ServerSettings
+
+        settings = ServerSettings()
+        assert settings.port == 8000
+
+    def test_read_transport_from_env(self, monkeypatch: MonkeyPatch) -> None:
+        """Read SKYWATCH_TRANSPORT from environment."""
+        monkeypatch.setenv("SKYWATCH_TRANSPORT", "http")
+        from skywatch_mcp.config import ServerSettings
+
+        settings = ServerSettings()
+        assert settings.transport == "http"
+
+    def test_read_host_and_port_from_env(self, monkeypatch: MonkeyPatch) -> None:
+        """Read SKYWATCH_HOST and SKYWATCH_PORT from environment."""
+        monkeypatch.setenv("SKYWATCH_HOST", "0.0.0.0")
+        monkeypatch.setenv("SKYWATCH_PORT", "9000")
+        from skywatch_mcp.config import ServerSettings
+
+        settings = ServerSettings()
+        assert settings.host == "0.0.0.0"
+        assert settings.port == 9000
+
+    def test_invalid_transport_rejected(self, monkeypatch: MonkeyPatch) -> None:
+        """An unknown transport value fails validation."""
+        import pytest
+        from pydantic import ValidationError
+
+        monkeypatch.setenv("SKYWATCH_TRANSPORT", "websocket")
+        from skywatch_mcp.config import ServerSettings
+
+        with pytest.raises(ValidationError):
+            ServerSettings()

@@ -2,6 +2,8 @@
 
 from mcp.server import MCPServer
 
+from skywatch_mcp.config import ServerSettings
+
 mcp = MCPServer("skywatch-mcp")
 
 import skywatch_mcp.tools.account_entropy  # noqa: E402, F401
@@ -19,4 +21,8 @@ import skywatch_mcp.tools.whois  # noqa: E402, F401
 
 
 def main() -> None:
+    settings = ServerSettings()
+    if settings.transport == "http":
+        mcp.run(transport="streamable-http", host=settings.host, port=settings.port)
+        return
     mcp.run(transport="stdio")
