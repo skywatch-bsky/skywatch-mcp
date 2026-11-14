@@ -265,9 +265,7 @@ class TestIPLookup:
 
         await ip_lookup("8.8.8.8")
 
-        # Verify AsyncClient was instantiated with correct timeout
         mock_client_class.assert_called_once_with(timeout=5.0)
-        # Verify get was called with correct endpoint and params
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
         assert "8.8.8.8" in call_args[0][0]

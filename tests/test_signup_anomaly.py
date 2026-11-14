@@ -138,7 +138,7 @@ class TestBuildSignupAnomalyTrendQuery:
 
         query = _build_signup_anomaly_trend_query(pds_host="pds.example.com", days=14, limit=500)
 
-        # is_anomaly appears in SELECT but not as a WHERE filter
+        # The trend query selects is_anomaly but does not filter by it.
         where_clause = query.split("WHERE")[1].split("ORDER")[0]
         assert "is_anomaly" not in where_clause
 

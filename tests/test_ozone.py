@@ -7,6 +7,7 @@ import pytest
 
 from skywatch_mcp.tools.ozone import (
     EVENT_TYPE_MAP,
+    REPORT_TYPE_MAP,
     REVIEW_STATE_MAP,
     _build_mod_tool,
     _build_query_string,
@@ -21,7 +22,6 @@ class TestConfigValidation:
         monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "")
         monkeypatch.setenv("OZONE_DID", "")
 
-        # Need to reimport to pick up env changes
         from importlib import reload
         import skywatch_mcp.tools.ozone as ozone_module
 
@@ -153,7 +153,6 @@ class TestSessionManagement:
 
         reload(ozone_module)
 
-        # Set cached session
         ozone_module._cached_session = {
             "accessJwt": "cached_token",
             "refreshJwt": "refresh_token",
@@ -176,24 +175,20 @@ class TestTokenRefresh:
 
         reload(ozone_module)
 
-        # Set initial cached session
         ozone_module._cached_session = {
             "accessJwt": "expired_token",
             "refreshJwt": "refresh_token",
         }
 
-        # First response: ExpiredToken error
         expired_response = MagicMock()
         expired_response.is_success = False
         expired_response.status_code = 401
         expired_response.text = "ExpiredToken"
 
-        # Second response (after refresh): success
         success_response = MagicMock()
         success_response.is_success = True
         success_response.text = '{"result": "ok"}'
 
-        # Refresh session response
         refresh_response = MagicMock()
         refresh_response.status_code = 200
         refresh_response.json.return_value = {
@@ -206,7 +201,6 @@ class TestTokenRefresh:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            # Set up side effects for multiple calls
             async_client_mock.post.side_effect = [
                 expired_response,
                 refresh_response,
@@ -296,6 +290,230 @@ class TestToolHandlers:
             assert result_dict["label"] == "violation"
 
 
+class TestOzoneReport:
+    @pytest.mark.asyncio
+    async def test_ozone_report_maps_friendly_report_type(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "321", "eventType": "tools.ozone.moderation.defs#modEventReport"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            result = await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Account posts spam links daily",
+            )
+
+            result_dict = json.loads(result)
+            assert result_dict["id"] == "321"
+
+            call_args = async_client_mock.post.call_args
+            assert "tools.ozone.moderation.emitEvent" in call_args[0][0]
+            request_body = call_args[1]["json"]
+            assert request_body["event"]["$type"] == "tools.ozone.moderation.defs#modEventReport"
+            assert request_body["event"]["reportType"] == "com.atproto.moderation.defs#reasonSpam"
+            assert request_body["event"]["comment"] == "Account posts spam links daily"
+            assert request_body["subject"]["$type"] == "com.atproto.admin.defs#repoRef"
+            assert request_body["subject"]["did"] == "did:plc:test"
+            assert request_body["createdBy"] == "did:plc:test"
+            assert request_body["modTool"]["name"] == "skywatch-mcp"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_passes_through_full_qualified_reason(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "322"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="tools.ozone.report.defs#reasonMisleadingSpam",
+                reason="Coordinated misleading spam network",
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["event"]["reportType"] == "tools.ozone.report.defs#reasonMisleadingSpam"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_rejects_invalid_report_type(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        with pytest.raises(ValueError, match="Unknown report type"):
+            await ozone_module.ozone_report(
+                subject="did:plc:test", report_type="bogus", reason="test"
+            )
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_is_reporter_muted_conditional(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "323"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Reporter already muted",
+                is_reporter_muted=True,
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["event"]["isReporterMuted"] is True
+
+            async_client_mock.reset_mock()
+            await ozone_module.ozone_report(
+                subject="did:plc:test",
+                report_type="spam",
+                reason="Default call omits the flag",
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert "isReporterMuted" not in request_body["event"]
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_at_uri_subject_requires_cid(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        at_uri = "at://did:plc:test/app.bsky.feed.post/abc123"
+
+        with pytest.raises(ValueError, match="AT-URI subjects require a cid parameter"):
+            await ozone_module.ozone_report(subject=at_uri, report_type="spam", reason="test")
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "324"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject=at_uri, report_type="spam", reason="test", cid="bafy123abc"
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["subject"]["$type"] == "com.atproto.repo.strongRef"
+            assert request_body["subject"]["uri"] == at_uri
+            assert request_body["subject"]["cid"] == "bafy123abc"
+
+    @pytest.mark.asyncio
+    async def test_ozone_report_batch_id_in_mod_tool(self, monkeypatch):
+        monkeypatch.setenv("OZONE_HANDLE", "test.bsky.social")
+        monkeypatch.setenv("OZONE_PDS", "api.bsky.app")
+        monkeypatch.setenv("OZONE_ADMIN_PASSWORD", "test_password")
+        monkeypatch.setenv("OZONE_DID", "did:plc:test")
+
+        from importlib import reload
+        import skywatch_mcp.tools.ozone as ozone_module
+
+        reload(ozone_module)
+
+        ozone_module._cached_session = {
+            "accessJwt": "token",
+            "refreshJwt": "refresh_token",
+        }
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.text = '{"id": "325"}'
+
+        async_client_mock = AsyncMock()
+        async_client_mock.post = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value.__aenter__.return_value = async_client_mock
+
+            await ozone_module.ozone_report(
+                subject="did:plc:test", report_type="spam", reason="test", batch_id="abc"
+            )
+
+            request_body = async_client_mock.post.call_args[1]["json"]
+            assert request_body["modTool"]["meta"]["batchId"] == "abc"
+
+
 class TestQueryTools:
     @pytest.mark.asyncio
     async def test_ozone_query_statuses_maps_review_state(self, monkeypatch):
@@ -326,7 +544,6 @@ class TestQueryTools:
 
             await ozone_module.ozone_query_statuses(review_state="open")
 
-            # Verify the call was made with correct query string
             call_args = async_client_mock.get.call_args
             assert "tools.ozone.moderation.defs%23reviewOpen" in call_args[0][0]
 
@@ -408,7 +625,6 @@ class TestQueryTools:
 
             await ozone_module.ozone_query_events(types=["comment", "label"])
 
-            # Verify the call was made with correct query string
             call_args = async_client_mock.get.call_args
             assert "tools.ozone.moderation.defs%23modEventComment" in call_args[0][0]
             assert "tools.ozone.moderation.defs%23modEventLabel" in call_args[0][0]
@@ -455,6 +671,13 @@ class TestEventAndReviewStateMaps:
             assert key in EVENT_TYPE_MAP
             value = EVENT_TYPE_MAP[key]
             assert value.startswith("tools.ozone.moderation.defs#")
+
+    def test_report_type_map_all_keys_valid(self):
+        expected_keys = ["spam", "violation", "misleading", "sexual", "rude", "other", "appeal"]
+        for key in expected_keys:
+            assert key in REPORT_TYPE_MAP
+            value = REPORT_TYPE_MAP[key]
+            assert value.startswith("com.atproto.moderation.defs#")
 
 
 class TestToolValidation:
@@ -530,21 +753,17 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            # Test with acknowledge_account_subjects=True
-            result = await ozone_module.ozone_acknowledge(
+            await ozone_module.ozone_acknowledge(
                 subject="did:plc:test", acknowledge_account_subjects=True
             )
 
-            result_dict = json.loads(result)
-            # Verify the event body was sent with correct $type and field
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
             assert request_body["event"]["$type"] == "tools.ozone.moderation.defs#modEventAcknowledge"
             assert request_body["event"]["acknowledgeAccountSubjects"] is True
 
-            # Test with acknowledge_account_subjects=False (default)
             async_client_mock.reset_mock()
-            result = await ozone_module.ozone_acknowledge(subject="did:plc:test")
+            await ozone_module.ozone_acknowledge(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -579,7 +798,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_escalate(subject="did:plc:test")
+            await ozone_module.ozone_escalate(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -613,7 +832,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_mute(
+            await ozone_module.ozone_mute(
                 subject="did:plc:test", duration_in_hours=24.5
             )
 
@@ -650,7 +869,7 @@ class TestMissingToolCoverage:
         with patch("httpx.AsyncClient") as mock_async_client:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
-            result = await ozone_module.ozone_unmute(subject="did:plc:test")
+            await ozone_module.ozone_unmute(subject="did:plc:test")
 
             call_args = async_client_mock.post.call_args
             request_body = call_args[1]["json"]
@@ -685,7 +904,7 @@ class TestMissingToolCoverage:
             mock_async_client.return_value.__aenter__.return_value = async_client_mock
 
             test_comment = "Appeal resolved with explanation"
-            result = await ozone_module.ozone_resolve_appeal(
+            await ozone_module.ozone_resolve_appeal(
                 subject="did:plc:test", comment=test_comment
             )
 
@@ -707,7 +926,6 @@ class TestMissingToolCoverage:
 
         reload(ozone_module)
 
-        # Clear cache before test
         ozone_module._cached_session = None
 
         mock_response = MagicMock()

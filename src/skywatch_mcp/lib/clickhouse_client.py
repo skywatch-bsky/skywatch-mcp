@@ -107,7 +107,7 @@ class ClickHouseClient:
         return QueryResult(columns=schema_columns, rows=all_rows)
 
 
-# Lazy singleton — shared across all tool modules
+# Share one client across tool modules.
 _client: ClickHouseClient | None = None
 
 

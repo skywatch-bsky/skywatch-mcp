@@ -10,12 +10,9 @@ import httpx
 from skywatch_mcp.config import OzoneSettings
 from skywatch_mcp.server import mcp
 
-# _settings is created at import time to capture environment variables at load time.
-# Environment variables are typically static for the lifetime of the process.
-# Tests reload this module when env vars change, which is the accepted pattern.
+# Tests must reload this module after changing environment variables.
 _settings = OzoneSettings()
 
-# Session cache at module level
 _cached_session: dict[str, str] | None = None
 
 REVIEW_STATE_MAP = {
@@ -46,6 +43,16 @@ EVENT_TYPE_MAP = {
     "recordEvent": "tools.ozone.moderation.defs#recordEvent",
 }
 
+REPORT_TYPE_MAP = {
+    "spam": "com.atproto.moderation.defs#reasonSpam",
+    "violation": "com.atproto.moderation.defs#reasonViolation",
+    "misleading": "com.atproto.moderation.defs#reasonMisleading",
+    "sexual": "com.atproto.moderation.defs#reasonSexual",
+    "rude": "com.atproto.moderation.defs#reasonRude",
+    "other": "com.atproto.moderation.defs#reasonOther",
+    "appeal": "com.atproto.moderation.defs#reasonAppeal",
+}
+
 
 def _validate_ozone_config() -> str | None:
     if not _settings.is_configured:
@@ -68,9 +75,7 @@ def _build_subject_ref(subject: str, cid: str | None = None) -> dict[str, str]:
 def _build_mod_tool(batch_id: str | None = None) -> dict[str, Any]:
     from datetime import datetime, timezone
 
-    # Note: TS version uses a custom UUIDv7 implementation. We use uuid4 here
-    # which is acceptable — batch IDs only need uniqueness, not time-ordering.
-    # Python 3.14+ will have native uuid7() if time-ordering is later desired.
+    # Batch IDs need uniqueness, not time-ordering, so UUID4 is sufficient.
     return {
         "name": "skywatch-mcp",
         "meta": {
@@ -238,7 +243,6 @@ async def ozone_label(
         batch_id: Optional UUID to group related label operations.
         duration_in_hours: Hours until label auto-expires. Omit for permanent. Only meaningful for apply.
     """
-    # This tool has custom logic beyond _emit_ozone_event (buildOzoneRequest pattern from TS)
     config_error = _validate_ozone_config()
     if config_error:
         raise ValueError(config_error)
@@ -374,6 +378,45 @@ async def ozone_resolve_appeal(
     """Resolve an appeal on a subject by providing a required explanation."""
     event = {"$type": "tools.ozone.moderation.defs#modEventResolveAppeal"}
     return await _emit_ozone_event(subject, event, cid=cid, comment=comment, batch_id=batch_id)
+
+
+@mcp.tool()
+async def ozone_report(
+    subject: str,
+    report_type: str,
+    reason: str,
+    cid: str | None = None,
+    batch_id: str | None = None,
+    is_reporter_muted: bool = False,
+) -> str:
+    """File a moderation report on a subject via the Ozone moderation service (modEventReport).
+
+    Args:
+        subject: DID (did:plc:...) or AT-URI (at://...) of the subject.
+        report_type: Report reason. Use a friendly name ("spam", "violation", "misleading", "sexual", "rude", "other", "appeal") or a full reason NSID such as "com.atproto.moderation.defs#reasonSpam". Accepted tools.ozone.report.defs#reason* values (pass through verbatim): tools.ozone.report.defs#reasonAppeal, tools.ozone.report.defs#reasonViolenceThreats, tools.ozone.report.defs#reasonViolenceGraphicContent, tools.ozone.report.defs#reasonViolenceGlorification, tools.ozone.report.defs#reasonViolenceExtremistContent, tools.ozone.report.defs#reasonViolenceTrafficking, tools.ozone.report.defs#reasonViolenceOther, tools.ozone.report.defs#reasonHarassmentTroll, tools.ozone.report.defs#reasonHarassmentTargeted, tools.ozone.report.defs#reasonHarassmentHateSpeech, tools.ozone.report.defs#reasonHarassmentDoxxing, tools.ozone.report.defs#reasonHarassmentOther, tools.ozone.report.defs#reasonMisleadingElections, tools.ozone.report.defs#reasonMisleadingSpam, tools.ozone.report.defs#reasonMisleadingScam, tools.ozone.report.defs#reasonRuleSiteSecurity, tools.ozone.report.defs#reasonRuleOther, tools.ozone.report.defs#reasonSelfHarmContent, tools.ozone.report.defs#reasonSelfHarmED, tools.ozone.report.defs#reasonSelfHarmStunts, tools.ozone.report.defs#reasonOther.
+        reason: Free-text explanation of the report; stored as the report event's comment.
+        cid: Required when subject is an AT-URI. The CID of the record.
+        batch_id: Optional UUID to group related moderation operations.
+        is_reporter_muted: Set true only if the reporter was muted from reporting; such reports do not change the subject's review state.
+    """
+    if report_type in REPORT_TYPE_MAP:
+        resolved_report_type = REPORT_TYPE_MAP[report_type]
+    elif "#" in report_type:
+        resolved_report_type = report_type
+    else:
+        raise ValueError(
+            f"Unknown report type: {report_type}. "
+            "Valid friendly names: spam, violation, misleading, sexual, rude, other, appeal. "
+            "Full reason NSIDs (e.g. tools.ozone.report.defs#reasonMisleadingSpam) are also accepted."
+        )
+
+    event = {
+        "$type": "tools.ozone.moderation.defs#modEventReport",
+        "reportType": resolved_report_type,
+        "comment": reason,
+        **({"isReporterMuted": True} if is_reporter_muted else {}),
+    }
+    return await _emit_ozone_event(subject, event, cid=cid, batch_id=batch_id)
 
 
 @mcp.tool()

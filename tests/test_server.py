@@ -3,20 +3,13 @@ from skywatch_mcp.server import mcp
 
 
 class TestServerToolRegistration:
-    """Verify all tools are registered correctly."""
 
     @pytest.mark.asyncio
     async def test_all_tools_registered(self) -> None:
-        """Test that server has exactly 32 tools registered.
-
-        2 ClickHouse, 1 domain, 1 IP, 1 URL, 1 WHOIS, 1 content,
-        7 cosharing, 10 ozone, 2 signup_anomaly, 2 url_overdispersion,
-        2 quote_overdispersion, 2 account_entropy.
-        """
         tools = await mcp.list_tools()
         tool_names = {tool.name for tool in tools}
 
-        assert len(tools) == 32, f"Expected 32 tools, got {len(tools)}"
+        assert len(tools) == 33, f"Expected 33 tools, got {len(tools)}"
 
         expected_tools = {
             "clickhouse_query",
@@ -49,6 +42,7 @@ class TestServerToolRegistration:
             "ozone_mute",
             "ozone_unmute",
             "ozone_resolve_appeal",
+            "ozone_report",
             "ozone_query_statuses",
             "ozone_query_events",
         }
@@ -58,29 +52,23 @@ class TestServerToolRegistration:
         )
 
     def test_console_script_entry_point_importable(self) -> None:
-        """Test AC5.3: Server main function is importable and callable."""
         from skywatch_mcp.server import main
 
         assert callable(main), "main should be callable"
 
 
 class TestServerImports:
-    """Verify server module imports without errors."""
 
     def test_server_imports_all_tools(self) -> None:
-        """Verify server.py imports all tool modules successfully."""
-        # If we got here, the import succeeded (would have raised on import failure)
         assert mcp is not None
         assert hasattr(mcp, "list_tools")
         assert hasattr(mcp, "run")
 
 
 class TestToolInputSchemas:
-    """Verify all tools have proper input schemas."""
 
     @pytest.mark.asyncio
     async def test_all_tools_have_input_schema_with_descriptions(self) -> None:
-        """Test AC2.1: All registered tools have inputSchema with property descriptions."""
         tools = await mcp.list_tools()
 
         assert len(tools) > 0, "No tools registered"
@@ -89,7 +77,6 @@ class TestToolInputSchemas:
             assert hasattr(tool, "inputSchema"), f"Tool {tool.name} missing inputSchema"
             assert tool.inputSchema is not None, f"Tool {tool.name} inputSchema is None"
 
-            # inputSchema should be a dict with properties
             if isinstance(tool.inputSchema, dict):
                 schema = tool.inputSchema
             else:

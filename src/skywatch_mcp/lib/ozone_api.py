@@ -1,21 +1,4 @@
-"""
-Ozone moderation client — reusable helper for agent-driven moderation operations.
-
-Solves three problems that the copy-paste scripts had:
-1. $type key serialization — uses content=json.dumps() internally
-2. Session management — cached with auto-refresh on ExpiredToken
-3. Acknowledge-after-label — label() and negate() acknowledge atomically
-
-Usage:
-    from skywatch_mcp.lib.ozone_api import OzoneClient
-
-    client = OzoneClient()
-    await client.label("did:plc:abc", ["troll"], comment="evidence...")
-    await client.negate("did:plc:abc", ["spam"], comment="false positive")
-    await client.acknowledge("did:plc:abc")
-    events = await client.query_events("did:plc:abc")
-    statuses = await client.query_statuses(review_state="open", limit=10)
-"""
+"""Client for Ozone moderation operations with cached sessions."""
 
 import json
 import uuid
@@ -26,11 +9,9 @@ import httpx
 
 from skywatch_mcp.config import OzoneSettings
 
-# Constants
 LABELER_DID = "did:plc:ar7c4by46qjdydhdevvrndac;redact"
 CREATED_BY = "did:plc:e4elbtctnfqocyfcml6h2lf7"  # skywatch.blue
 
-# Event type URIs
 _T_LABEL = "tools.ozone.moderation.defs#modEventLabel"
 _T_COMMENT = "tools.ozone.moderation.defs#modEventComment"
 _T_ACK = "tools.ozone.moderation.defs#modEventAcknowledge"
@@ -46,8 +27,6 @@ class OzoneClient:
     def __init__(self, settings: OzoneSettings | None = None):
         self._settings = settings or OzoneSettings()
         self._cached_session: dict[str, str] | None = None
-
-    # ---- Session management ----
 
     async def _create_session(self) -> str:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -90,8 +69,6 @@ class OzoneClient:
             return self._cached_session["accessJwt"]
         return await self._create_session()
 
-    # ---- Core request helper ----
-
     async def _request(
         self, method: str, path: str, body: Any = None
     ) -> dict[str, Any]:
@@ -109,7 +86,7 @@ class OzoneClient:
 
         url = f"https://{self._settings.pds}/xrpc/{path}"
 
-        # Use content= with pre-serialized JSON to avoid $type key issues
+        # Serialize explicitly so httpx preserves the AT Protocol $type key.
         if method == "GET":
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(url, headers=build_headers(jwt), params=body)
@@ -141,8 +118,6 @@ class OzoneClient:
             parsed = json.loads(text)
             return parsed if isinstance(parsed, dict) else {}
         return {}
-
-    # ---- Subject helpers ----
 
     @staticmethod
     def _subject_ref(subject: str, cid: str | None = None) -> dict[str, str]:
@@ -181,8 +156,6 @@ class OzoneClient:
         }
         return await self._request("POST", "tools.ozone.moderation.emitEvent", body)
 
-    # ---- Public API ----
-
     async def label(
         self,
         subject: str,
@@ -208,7 +181,6 @@ class OzoneClient:
         """
         results = {}
 
-        # 1. Apply label
         label_event = {
             "$type": _T_LABEL,
             "createLabelVals": labels,
@@ -216,12 +188,10 @@ class OzoneClient:
         }
         results["label"] = await self._emit(subject, label_event, cid, batch_id)
 
-        # 2. Evidence comment (non-sticky)
         if comment:
             comment_event = {"$type": _T_COMMENT, "comment": comment, "sticky": False}
             results["comment"] = await self._emit(subject, comment_event, cid, batch_id)
 
-        # 3. Acknowledge (close the report)
         if acknowledge:
             ack_event = {
                 "$type": _T_ACK,

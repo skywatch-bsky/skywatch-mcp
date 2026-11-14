@@ -6,7 +6,6 @@ from skywatch_mcp.config import ClickHouseSettings
 
 
 class TestClickHouseClient:
-    """Test ClickHouseClient wrapper"""
 
     @pytest.fixture
     def mock_settings(self):
@@ -99,7 +98,6 @@ class TestClickHouseClient:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
-            # Create 12 mock results (one per table in SCHEMA_TABLES)
             mock_results = []
             for i in range(12):
                 mock_result = MagicMock()
@@ -111,20 +109,15 @@ class TestClickHouseClient:
                 ]
                 mock_results.append(mock_result)
 
-            # Set up side effects to return each result in sequence
             mock_async_client.query.side_effect = mock_results
 
             client = ClickHouseClient(mock_settings)
             result = await client.get_schema()
 
             assert isinstance(result, QueryResult)
-            # Should have name, type, and table columns
             assert any(col["name"] == "table" for col in result.columns)
-            # Should have 24 rows total (2 from each of 12 tables)
             assert len(result.rows) == 24
-            # All rows should have table field
             assert all("table" in row for row in result.rows)
-            # Verify all 12 tables were queried
             assert mock_async_client.query.call_count == 12
 
     @pytest.mark.asyncio
@@ -136,7 +129,6 @@ class TestClickHouseClient:
             mock_async_client = AsyncMock()
             mock_get.return_value = mock_async_client
 
-            # Create 11 side effects with some exceptions at known positions
             mock_side_effects = []
             for i in range(12):
                 if i in (2, 5, 8):  # Fail at positions 2, 5, 8
@@ -156,9 +148,7 @@ class TestClickHouseClient:
             assert isinstance(result, QueryResult)
             # Should have 9 rows (1 from each successful table: 12 - 3 exceptions = 9)
             assert len(result.rows) == 9
-            # All rows should have table field
             assert all("table" in row for row in result.rows)
-            # Verify all 12 tables were attempted
             assert mock_async_client.query.call_count == 12
 
     @pytest.mark.asyncio
@@ -179,9 +169,7 @@ class TestClickHouseClient:
             client = ClickHouseClient(mock_settings)
             await client.query_trusted("SELECT 'test' LIMIT 1")
 
-            # Verify async query method was called
             mock_async_client.query.assert_called_once()
-            # Verify it was awaited (AsyncMock verifies this)
 
     @pytest.mark.asyncio
     async def test_query_failure_should_discard_cached_client(self, mock_settings):
@@ -244,7 +232,6 @@ class TestClickHouseClient:
             client = ClickHouseClient(mock_settings)
             await client.query("SELECT 1 LIMIT 1")
 
-            # Verify settings were passed with 60s timeout
             call_args = mock_async_client.query.call_args
             assert call_args[1]["settings"]["max_execution_time"] == 60
 
@@ -266,16 +253,13 @@ class TestClickHouseClient:
             client = ClickHouseClient(mock_settings)
             await client.query_trusted("SELECT 1")
 
-            # Verify settings were passed with 120s timeout
             call_args = mock_async_client.query.call_args
             assert call_args[1]["settings"]["max_execution_time"] == 120
 
 
 class TestSchemaTables:
-    """Test SCHEMA_TABLES constant"""
 
     def test_should_have_11_tables(self):
-        """SCHEMA_TABLES should contain 12 predefined tables"""
         assert len(SCHEMA_TABLES) == 12
 
     def test_should_have_expected_table_names(self):

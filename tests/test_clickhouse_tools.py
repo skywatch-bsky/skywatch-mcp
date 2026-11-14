@@ -10,7 +10,6 @@ class TestClickHouseTools:
 
     @pytest.mark.asyncio
     async def test_clickhouse_query_tool_should_execute_and_return_json(self):
-        """clickhouse_query tool should return JSON with columns and rows"""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
@@ -41,12 +40,10 @@ class TestClickHouseTools:
 
     @pytest.mark.asyncio
     async def test_clickhouse_query_tool_should_raise_on_validation_error(self):
-        """clickhouse_query tool should raise ValueError on validation error"""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
 
-            # Setup mock to raise validation error
             mock_client.query.side_effect = ValueError(
                 "Query validation failed: Query must contain a LIMIT clause"
             )
@@ -58,7 +55,6 @@ class TestClickHouseTools:
 
     @pytest.mark.asyncio
     async def test_clickhouse_schema_tool_should_return_json_with_schema(self):
-        """clickhouse_schema tool should return JSON with column definitions"""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
@@ -89,7 +85,6 @@ class TestClickHouseTools:
 
     @pytest.mark.asyncio
     async def test_clickhouse_schema_tool_should_raise_on_error(self):
-        """clickhouse_schema tool should raise ValueError on error"""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
@@ -106,8 +101,6 @@ class TestServerImport:
     """Test MCP server integration"""
 
     def test_server_should_import_clickhouse_tools(self):
-        """Server should import clickhouse tools module"""
-        # This will fail if tools aren't properly registered
         from skywatch_mcp.server import mcp
 
         tool_names = [t.name for t in mcp._tool_manager._tools.values()]
