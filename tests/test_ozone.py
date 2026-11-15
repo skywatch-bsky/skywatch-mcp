@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import skywatch_mcp.tools.ozone as ozone_module
+from skywatch_mcp.lib.tool_errors import ToolInputError
 from skywatch_mcp.tools.ozone import (
     EVENT_TYPE_MAP,
     REPORT_TYPE_MAP,
@@ -644,6 +646,102 @@ class TestQueryTools:
         with patch.object(ozone_module, "_settings", settings):
             with pytest.raises(ToolError, match="Unknown event type"):
                 await ozone_module.ozone_query_events(types=["invalid_type"])
+
+
+class TestNormalizeEventTypes:
+    """D.13: short names and full NSIDs are interchangeable; unknown names fail actionably."""
+
+    def test_normalize_event_types_none_passthrough(self):
+        assert ozone_module.normalize_event_types(None) is None
+
+    def test_normalize_event_types_short_and_full_equivalent(self):
+        short = ozone_module.normalize_event_types(["report", "label"])
+        full = ozone_module.normalize_event_types(
+            [
+                "tools.ozone.moderation.defs#modEventReport",
+                "tools.ozone.moderation.defs#modEventLabel",
+            ]
+        )
+        assert short == full == [
+            "tools.ozone.moderation.defs#modEventReport",
+            "tools.ozone.moderation.defs#modEventLabel",
+        ]
+
+    def test_normalize_event_types_preserves_order_and_duplicates(self):
+        resolved = ozone_module.normalize_event_types(
+            ["label", "report", "label"]
+        )
+        assert resolved == [
+            "tools.ozone.moderation.defs#modEventLabel",
+            "tools.ozone.moderation.defs#modEventReport",
+            "tools.ozone.moderation.defs#modEventLabel",
+        ]
+
+    def test_normalize_event_types_mixed_forms(self):
+        resolved = ozone_module.normalize_event_types(
+            ["report", "tools.ozone.moderation.defs#modEventLabel"]
+        )
+        assert resolved == [
+            "tools.ozone.moderation.defs#modEventReport",
+            "tools.ozone.moderation.defs#modEventLabel",
+        ]
+
+    def test_normalize_event_types_unknown_actionable(self):
+        with pytest.raises(ToolInputError) as exc_info:
+            ozone_module.normalize_event_types(["bogus_type"])
+        message = str(exc_info.value)
+        assert "bogus_type" in message
+        assert "report" in message  # short names listed
+        assert "tools.ozone.moderation.defs#modEventReport" in message  # NSID example
+
+    def test_normalize_event_types_rejects_non_nsid_lookalikes(self):
+        with pytest.raises(ToolInputError):
+            ozone_module.normalize_event_types(["modEventReport"])  # bare suffix is not valid
+
+
+class TestQueryEventsCommentPassthrough:
+    @pytest.fixture
+    def configured_settings(self, monkeypatch):
+        settings = ozone_module.OzoneSettings(
+            handle="moderator@example",
+            admin_password="not-a-real-password",
+            did="did:plc:testmoderator",
+            pds="ozone.example.invalid",
+        )
+        monkeypatch.setattr(ozone_module, "_settings", settings)
+        return settings
+
+    @pytest.mark.asyncio
+    async def test_comment_presence_preserved(self, configured_settings):
+        """Reporter comments pass through verbatim: absent keys stay absent, present values stay present."""
+        api_result = {
+            "events": [
+                {
+                    "id": 1,
+                    "event": {
+                        "type": "tools.ozone.moderation.defs#modEventReport",
+                        "comment": "spam report from user",
+                    },
+                },
+                {
+                    "id": 2,
+                    "event": {
+                        "type": "tools.ozone.moderation.defs#modEventLabel",
+                    },
+                },
+            ]
+        }
+
+        async def fake_request(method, path, body=None):
+            assert path.startswith("tools.ozone.moderation.queryEvents")
+            return api_result
+
+        with patch.object(ozone_module, "_ozone_request", fake_request):
+            result = await ozone_module.ozone_query_events(types=["report"])
+
+        data = json.loads(result)
+        assert data["events"][0]["event"]["comment"] == "spam report from user"
+        assert "comment" not in data["events"][1]["event"]
 
 
 class TestEventAndReviewStateMaps:

@@ -55,6 +55,32 @@ REPORT_TYPE_MAP = {
 }
 
 
+def normalize_event_types(types: list[str] | None) -> list[str] | None:
+    """Resolve event-type filters to full NSIDs (pattern: Functional Core).
+
+    Short names in EVENT_TYPE_MAP map to their full NSID; full NSIDs that are
+    values of the map pass through unchanged; anything else raises an
+    actionable ToolInputError listing valid values. Order is preserved and
+    duplicates are not silently deduplicated.
+    """
+    if types is None:
+        return None
+    full_nsids = set(EVENT_TYPE_MAP.values())
+    resolved: list[str] = []
+    for event_type in types:
+        if event_type in EVENT_TYPE_MAP:
+            resolved.append(EVENT_TYPE_MAP[event_type])
+        elif event_type in full_nsids:
+            resolved.append(event_type)
+        else:
+            raise ToolInputError(
+                f"Unknown event type: {event_type}. Valid values are short names "
+                f"({', '.join(sorted(EVENT_TYPE_MAP))}) or full NSIDs such as "
+                "tools.ozone.moderation.defs#modEventReport."
+            )
+    return resolved
+
+
 def _validate_ozone_config() -> str | None:
     if not _settings.is_configured:
         return "Ozone is not configured. Set OZONE_HANDLE, OZONE_PDS, OZONE_ADMIN_PASSWORD, and OZONE_DID environment variables."
@@ -499,14 +525,7 @@ async def ozone_query_events(
     if config_error:
         raise ToolInputError(config_error)
 
-    mapped_types = None
-    if types:
-        mapped_types = []
-        for t in types:
-            mapped = EVENT_TYPE_MAP.get(t)
-            if not mapped:
-                raise ToolInputError(f"Unknown event type: {t}")
-            mapped_types.append(mapped)
+    mapped_types = normalize_event_types(types)
 
     query_params: dict[str, str | list[str] | None] = {
         "subject": subject,

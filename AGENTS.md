@@ -1,6 +1,6 @@
 # skywatch-mcp
 
-Last verified: 2026-11-14
+Last verified: 2026-11-15
 
 ## Tech Stack
 - Language: Python 3.12+, strict mypy
@@ -23,19 +23,22 @@ Last verified: 2026-11-14
 ## Project Structure
 - `src/skywatch_mcp/server.py` -- MCPServer app, registers all tool modules via import side-effects
 - `src/skywatch_mcp/config.py` -- ClickHouseSettings and OzoneSettings (pydantic-settings, env vars)
-- `src/skywatch_mcp/tools/` -- MCP tool functions (12 modules, 33 tools): ClickHouse analytics, reputation lookups (domain, IP, URL, WHOIS, content similarity), Ozone moderation, statistical anomaly detection (account_entropy, signup_anomaly, cosharing, quote_overdispersion, url_overdispersion)
-- `src/skywatch_mcp/lib/` -- Reusable helpers: SQL validation, WHOIS parsing, URL shortener list, ClickHouse client, Ozone API client (`OzoneClient` in `ozone_api.py`: cached sessions, auto-refresh on ExpiredToken), error boundary (`tool_errors.py`: `ToolInputError`, `tool_error_boundary`)
+- `src/skywatch_mcp/tools/` -- MCP tool functions (12 modules, 35 tools): ClickHouse analytics (query, schema selection, health, rule summary), reputation lookups (domain, IP, URL, WHOIS, content similarity), Ozone moderation, statistical anomaly detection (account_entropy, signup_anomaly, cosharing, quote_overdispersion, url_overdispersion)
+- `src/skywatch_mcp/lib/` -- Reusable helpers: SQL validation, WHOIS parsing, URL shortener list, ClickHouse client (classification, query_id correlation, bounded DESCRIBE schema fetch, 1 MiB result budget), Ozone API client (`OzoneClient` in `ozone_api.py`: cached sessions, auto-refresh on ExpiredToken), error boundary (`tool_errors.py`: `ToolInputError`, `BackendError`, `tool_error_boundary`)
 - `src/skywatch_mcp/models/` -- Empty, reserved for future Pydantic models
-- `tests/` -- 494 tests, no external service dependencies (protocol tests spawn the real stdio server in a temporary directory)
+- `tests/` -- Offline suite, no external service dependencies (protocol tests spawn the real stdio server in a temporary directory); `tests/test_live_backend.py` is opt-in gated (`SKYWATCH_LIVE_CH=1`, Ozone live checks additionally `SKYWATCH_LIVE_OZONE=1`) and skipped by default
+- `docs/measurements/` -- Recorded measurement artifacts backing provisional limits
 
 ## Conventions
 - Functional Core / Imperative Shell pattern (annotated with `# pattern:` comments)
 - All tools register on the shared `mcp` instance from `server.py`
 - Tool functions return JSON strings. This is a compatibility convention, not a protocol requirement: the SDK wraps each string into text content plus a `{"result": <string>}` structured payload. Changing a tool to return a dict changes its output shape and its clients.
-- Error boundary (`src/skywatch_mcp/lib/tool_errors.py`): every tool sits under `@tool_error_boundary` (below `@mcp.tool()`). Safe validation/configuration failures raise `ToolInputError` (a `ValueError` subclass) and reach clients as SDK `ToolError` with an actionable message. Unexpected exceptions, including backend failures that embed response bodies, are never rewrapped; the SDK masks them to `Error executing tool <name>`. Known timeouts/connectivity failures get fixed detail-free messages.
-- Pure helpers (`lib/sanitizers.py`, query builders, `_build_subject_ref`) raise `ToolInputError` for user-facing input problems; the boundary translates only `ToolInputError`. A plain `ValueError` is masked by the SDK like any backend failure, so never raise plain `ValueError` for messages clients need to read.
-- ClickHouse queries from user input go through `query()` (validated); internal queries use `query_trusted()`
-- Ozone tools use module-level session cache with auto-refresh on ExpiredToken
+- Error boundary (`src/skywatch_mcp/lib/tool_errors.py`): every tool sits under `@tool_error_boundary` (below `@mcp.tool()`). Three distinct channels: (1) `ToolInputError` for safe validation/configuration failures — reaches clients as SDK `ToolError` with an actionable message; (2) `BackendError` for classified ClickHouse backend failures — reaches clients as `ToolError` whose message is the SDK prefix plus parseable JSON (`kind`, `retryable`, `query_id`, numeric `code`, fixed allowlisted `message`), never raw backend text, hosts, URLs, or SQL; (3) everything else, including plain `ValueError`, stays masked as `Error executing tool <name>`. Logging from backend-failure paths carries only `kind`, `code`, `query_id`.
+- Pure helpers (`lib/sanitizers.py`, query builders, `_build_subject_ref`) raise `ToolInputError` for user-facing input problems. A plain `ValueError` is masked by the SDK like any backend failure, so never raise plain `ValueError` for messages clients need to read.
+- ClickHouse queries from user input go through `query()` (validated); internal queries use `query_trusted()` (optional keyword-only typed bound `parameters`, `max_execution_time` override). Every query carries a UUID `query_id` for `system.query_log` correlation, echoed in success `meta` and error payloads.
+- Measured limits: 60 s user-query budget / 120 s trusted budget / 10 s deadline grace / 130 s driver socket bound (code-measured); 10 s per-table DESCRIBE + 60 s overall schema deadline; 1 MiB `RESULT_BYTE_BUDGET` on the final serialized output (provisional — see `docs/measurements/2026-11-15-serialization-budget.md`; effective server `max_query_size` unknown until the gated live check reads `system.settings`). Result truncation does not bound driver-side memory; memory is bounded by the caller's LIMIT and server limits.
+- Ozone tools use module-level session cache with auto-refresh on ExpiredToken; event-type filters accept short names and full `tools.ozone.moderation.defs#modEvent*` NSIDs interchangeably via `normalize_event_types`.
+- `clickhouse_rule_summary` requires `VERIFIED_RULE_CATALOGUE` (authoritative provenance; ships EMPTY, failing closed with structured `rule_catalogue_unavailable`) — flag candidacy alone never verifies rule identity.
 
 ## Environment Variables
 - `SKYWATCH_TRANSPORT` (`stdio`|`http`, default `stdio`), `SKYWATCH_HOST` (default `127.0.0.1`), `SKYWATCH_PORT` (default `8000`) -- server process settings (`ServerSettings`)

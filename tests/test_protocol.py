@@ -184,7 +184,7 @@ class TestModernStdioProtocol:
         assert "ttlMs" in tools_result
         assert "cacheScope" in tools_result
         names = {tool["name"] for tool in tools_result["tools"]}
-        assert len(tools_result["tools"]) == 33
+        assert len(tools_result["tools"]) == 35
         assert names == EXPECTED_TOOL_NAMES
         for tool in tools_result["tools"]:
             assert isinstance(tool["inputSchema"], dict)
@@ -244,6 +244,48 @@ class TestLegacyStdioProtocol:
         assert call_result["isError"] is True
         text = call_result["content"][0]["text"]
         assert "Input should be a valid string" in text or "type=string_type" in text
+
+
+class TestBackendFailureForwarding:
+    @pytest.mark.asyncio
+    async def test_stdio_structured_backend_error_on_closed_port(
+        self, tmp_path: Path
+    ) -> None:
+        """A deterministically closed ClickHouse port yields structured JSON on the wire.
+
+        The child server runs with CLICKHOUSE_HOST=127.0.0.1, CLICKHOUSE_PORT=1
+        (connection refused). The isError text must be the SDK prefix plus a
+        JSON payload: kind backend_unavailable, retryable, a query_id, the
+        allowlisted message only — no host, credential, or backend body text.
+        """
+        env = _controlled_env()
+        env["CLICKHOUSE_HOST"] = "127.0.0.1"
+        env["CLICKHOUSE_PORT"] = "1"
+        async with StdioJsonRpcHarness(_server_command(), cwd=tmp_path, env=env) as harness:
+            call = await harness.request(
+                1,
+                "tools/call",
+                modern_params(
+                    {"name": "clickhouse_query", "arguments": {"sql": "SELECT 1 LIMIT 1"}}
+                ),
+            )
+
+        result = call["result"]
+        assert result["isError"] is True
+        text = result["content"][0]["text"]
+        prefix = "Error executing tool clickhouse_query: "
+        assert text.startswith(prefix)
+        payload = json.loads(text[len(prefix):])
+        assert payload["kind"] == "backend_unavailable"
+        assert payload["retryable"] is True
+        assert isinstance(payload["query_id"], str) and payload["query_id"]
+        assert payload["message"] == (
+            "ClickHouse backend is unreachable. Verify the service is running, then retry."
+        )
+        # No host/credential/backend-body content on the wire.
+        assert "127.0.0.1" not in text
+        for structured in result.get("structuredContent", {}).values():
+            assert "127.0.0.1" not in str(structured)
 
 
 class TestHarnessSelfChecks:

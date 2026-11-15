@@ -8,6 +8,7 @@ covered separately in test_protocol.py.
 
 import importlib.metadata
 import inspect
+import json
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,12 +17,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp import Client
 
+from skywatch_mcp.lib.tool_errors import BackendError
 from skywatch_mcp.server import mcp
 from skywatch_mcp.tools import ozone as ozone_module
 
 EXPECTED_TOOL_NAMES: set[str] = {
     "clickhouse_query",
     "clickhouse_schema",
+    "clickhouse_health",
+    "clickhouse_rule_summary",
     "domain_check",
     "ip_lookup",
     "url_expand",
@@ -95,7 +99,7 @@ class TestRegistration:
             result = await client.list_tools()
             names = {tool.name for tool in result.tools}
 
-        assert len(result.tools) == 33
+        assert len(result.tools) == 35
         assert names == EXPECTED_TOOL_NAMES, (
             f"Tool mismatch. Missing: {EXPECTED_TOOL_NAMES - names}, Extra: {names - EXPECTED_TOOL_NAMES}"
         )
@@ -122,7 +126,12 @@ class TestInputContracts:
 
         handlers = {
             **{n: getattr(account_entropy, n) for n in ("account_entropy_results", "account_entropy_trend")},
-            **{n: getattr(clickhouse, n) for n in ("clickhouse_query", "clickhouse_schema")},
+            **{n: getattr(clickhouse, n) for n in (
+                "clickhouse_query",
+                "clickhouse_schema",
+                "clickhouse_health",
+                "clickhouse_rule_summary",
+            )},
             **{n: getattr(content, n) for n in ("content_similarity",)},
             **{n: getattr(cosharing, n) for n in (
                 "cosharing_clusters",
@@ -335,6 +344,48 @@ class TestErrorBoundary:
         assert result.content[0].text == "Error executing tool clickhouse_query"
         assert SENTINEL_SECRET not in str(result)
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("kind", "retryable", "code", "message_fragment"),
+        [
+            ("backend_unavailable", True, None, "unreachable"),
+            ("auth_failed", False, 516, "authentication failed"),
+            ("invalid_sql", False, 62, "rejected the query"),
+            ("request_too_large", False, 61, "size or memory limit"),
+            ("timeout", True, None, "execution budget"),
+            ("unknown", False, None, "unrecognized error"),
+        ],
+    )
+    async def test_structured_backend_error_by_kind(
+        self, kind: str, retryable: bool, code: int | None, message_fragment: str
+    ) -> None:
+        """Classified BackendError reaches the wire as parseable JSON with allowlisted text."""
+
+        def fail(*args: object, **kwargs: object) -> object:
+            raise BackendError(kind=kind, retryable=retryable, query_id="qid-123", code=code)
+
+        with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_client.query.side_effect = fail
+            mock_get_client.return_value = mock_client
+
+            async with Client(mcp, raise_exceptions=True) as client:
+                result = await client.call_tool(
+                    "clickhouse_query", {"sql": "SELECT 1 LIMIT 1"}
+                )
+
+        assert result.is_error
+        wire_text = result.content[0].text
+        prefix = "Error executing tool clickhouse_query: "
+        assert wire_text.startswith(prefix)
+        payload = json.loads(wire_text[len(prefix):])
+        assert payload["kind"] == kind
+        assert payload["retryable"] is retryable
+        assert payload["code"] == code
+        assert payload["query_id"] == "qid-123"
+        assert message_fragment in payload["message"]
+        assert SENTINEL_SECRET not in wire_text
+
     def test_boundary_preserves_tool_signature(self) -> None:
         """functools.wraps keeps the handler signature visible for SDK schema discovery."""
         from skywatch_mcp.tools.ozone import ozone_report
@@ -347,3 +398,61 @@ class TestErrorBoundary:
             wrapped_param = wrapped.parameters[name]
             assert wrapped_param.default == original_param.default
             assert wrapped_param.annotation == original_param.annotation
+
+
+class TestOzoneEventTypeAliases:
+    """AC.10: short names and full NSIDs produce byte-identical outgoing requests."""
+
+    @pytest.fixture
+    def configured_settings(self, monkeypatch):
+        monkeypatch.setattr(ozone_module, "_settings", _configured_ozone_settings())
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "event_type",
+        ["report", "tools.ozone.moderation.defs#modEventReport"],
+    )
+    async def test_query_events_short_and_full_same_request(
+        self, configured_settings, event_type: str
+    ) -> None:
+        captured: list[str] = []
+
+        async def capture_request(method: str, path: str, body: object = None) -> dict:
+            captured.append(path)
+            return {"events": []}
+
+        with patch.object(ozone_module, "_ozone_request", capture_request):
+            await ozone_module.ozone_query_events(types=[event_type])
+
+        assert captured == [
+            "tools.ozone.moderation.queryEvents?types=tools.ozone.moderation.defs%23modEventReport"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_query_events_mixed_forms_same_request(
+        self, configured_settings
+    ) -> None:
+        """Short + full mixed list resolves identically to the all-full form."""
+        captured: list[str] = []
+
+        async def capture_request(method: str, path: str, body: object = None) -> dict:
+            captured.append(path)
+            return {"events": []}
+
+        forms = ["report", "tools.ozone.moderation.defs#modEventLabel"]
+        with patch.object(ozone_module, "_ozone_request", capture_request):
+            await ozone_module.ozone_query_events(types=forms)
+
+        assert captured == [
+            "tools.ozone.moderation.queryEvents"
+            "?types=tools.ozone.moderation.defs%23modEventReport"
+            "&types=tools.ozone.moderation.defs%23modEventLabel"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_query_events_unknown_type_actionable_through_tool(
+        self, configured_settings
+    ) -> None:
+        """Dispatching through the tool surfaces unknown event types as a public ToolError."""
+        with pytest.raises(Exception, match="Unknown event type"):
+            await ozone_module.ozone_query_events(types=["bogus_type"])

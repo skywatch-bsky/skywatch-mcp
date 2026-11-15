@@ -11,11 +11,13 @@ class TestServerToolRegistration:
         tools = await mcp.list_tools()
         tool_names = {tool.name for tool in tools}
 
-        assert len(tools) == 33, f"Expected 33 tools, got {len(tools)}"
+        assert len(tools) == 35, f"Expected 35 tools, got {len(tools)}"
 
         expected_tools = {
             "clickhouse_query",
             "clickhouse_schema",
+            "clickhouse_health",
+            "clickhouse_rule_summary",
             "domain_check",
             "ip_lookup",
             "url_expand",

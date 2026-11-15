@@ -33,7 +33,7 @@ class TestResponseShapes:
 
     @pytest.mark.asyncio
     async def test_clickhouse_schema_response_shape(self) -> None:
-        """Test clickhouse_schema returns {columns: [...], rows: [...]}."""
+        """Test clickhouse_schema returns {columns, rows, coverage, meta} for zero args."""
         with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_client_func:
             mock_result = MagicMock()
             mock_result.columns = [
@@ -42,6 +42,13 @@ class TestResponseShapes:
                 {"name": "type", "type": "String"},
             ]
             mock_result.rows = [{"table": "test_table", "name": "id", "type": "Int32"}]
+            mock_result.query_id = "q-schema"
+            mock_result.elapsed_ms = 5
+            mock_result.coverage = {
+                "tables_expected": 12,
+                "tables_matched": 12,
+                "tables_missing": [],
+            }
 
             mock_client = MagicMock()
             mock_client.get_schema = AsyncMock(return_value=mock_result)
@@ -52,8 +59,64 @@ class TestResponseShapes:
 
             assert "columns" in result
             assert "rows" in result
+            assert result["coverage"]["tables_expected"] == 12
+            assert result["meta"]["query_id"] == "q-schema"
             assert isinstance(result["columns"], list)
             assert isinstance(result["rows"], list)
+
+    @pytest.mark.asyncio
+    async def test_clickhouse_schema_compact_response_shape(self) -> None:
+        """Table-scoped clickhouse_schema returns {table, columns, missing_fields, coverage, meta}."""
+        with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_client_func:
+            mock_result = MagicMock()
+            mock_result.rows = [
+                {"name": "AtUri", "type": "String"},
+                {"name": "Cid", "type": "String"},
+            ]
+            mock_result.query_id = "q-c"
+            mock_result.elapsed_ms = 3
+            mock_result.coverage = {
+                "tables_expected": 1,
+                "tables_matched": 1,
+                "tables_missing": [],
+            }
+
+            mock_client = MagicMock()
+            mock_client.get_table_columns = AsyncMock(return_value=mock_result)
+            mock_client_func.return_value = mock_client
+
+            result_json = await clickhouse.clickhouse_schema(table="osprey_execution_results")
+            result = json.loads(result_json)
+
+            assert result["table"] == "default.osprey_execution_results"
+            assert [c["name"] for c in result["columns"]] == ["AtUri", "Cid"]
+            assert result["missing_fields"] == []
+            assert result["coverage"] == {
+                "tables_expected": 1,
+                "tables_matched": 1,
+                "tables_missing": [],
+            }
+            mock_client.get_table_columns.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_clickhouse_health_response_shape(self) -> None:
+        """clickhouse_health returns {connected, server_version, meta}."""
+        with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_client_func:
+            mock_result = MagicMock()
+            mock_result.rows = [{"connected": 1, "server_version": "24.8"}]
+            mock_result.query_id = "q-h"
+            mock_result.elapsed_ms = 1
+
+            mock_client = MagicMock()
+            mock_client.query_trusted = AsyncMock(return_value=mock_result)
+            mock_client_func.return_value = mock_client
+
+            result_json = await clickhouse.clickhouse_health()
+            result = json.loads(result_json)
+
+            assert result["connected"] is True
+            assert result["server_version"] == "24.8"
+            assert result["meta"]["query_id"] == "q-h"
 
     @pytest.mark.asyncio
     async def test_ip_lookup_response_shape(self) -> None:
@@ -190,13 +253,33 @@ class TestResponseShapes:
             assert isinstance(result["count"], int)
 
     @pytest.mark.asyncio
-    async def test_error_handling_raises_value_error(self) -> None:
-        """Test that a raw backend crash propagates from the handler; the SDK masks it in wire results."""
-        with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_client:
-            mock_client.return_value.query.side_effect = Exception("DB error")
+    async def test_error_handling_raises_classified_backend_error(self) -> None:
+        """A driver crash inside the real client is classified (the SDK masks plain text)."""
+        from skywatch_mcp.config import ClickHouseSettings
+        from skywatch_mcp.lib.clickhouse_client import ClickHouseClient
+        from skywatch_mcp.lib.tool_errors import BackendError
 
-            with pytest.raises(Exception, match="DB error"):
-                await clickhouse.clickhouse_query("SELECT * FROM test LIMIT 1")
+        with (
+            patch(
+                "skywatch_mcp.lib.clickhouse_client.clickhouse_connect.get_async_client"
+            ) as mock_get,
+            patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client,
+        ):
+            driver = AsyncMock()
+            driver.query.side_effect = RuntimeError("DB error")
+            mock_get.return_value = driver
+            real_client = ClickHouseClient(ClickHouseSettings())
+            mock_get_client.return_value = real_client
+
+            with pytest.raises(BackendError) as exc_info:
+                await clickhouse.clickhouse_query.__wrapped__(  # type: ignore[attr-defined]
+                    "SELECT * FROM test LIMIT 1"
+                )
+
+            assert exc_info.value.kind == "unknown"
+            assert exc_info.value.retryable is False
+            # The exception text "DB error" never appears in the payload message.
+            assert "DB error" not in exc_info.value.message
 
     @pytest.mark.asyncio
     async def test_whois_lookup_response_shape(self) -> None:
@@ -232,6 +315,96 @@ class TestResponseShapes:
                 assert "nameservers" in result
                 assert "domain_age" in result
                 assert "raw_text" in result
+
+
+class TestJsonStringWrapping:
+    """Changed/new tools keep the JSON-string output convention (AC.12).
+
+    The SDK wraps each returned string into text content plus a
+    ``{"result": <string>}`` structured payload.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("tool_name", "arguments", "mock_path", "setup"),
+        [
+            (
+                "clickhouse_query",
+                {"sql": "SELECT 1 LIMIT 1"},
+                "skywatch_mcp.tools.clickhouse.get_client",
+                "query",
+            ),
+            (
+                "clickhouse_health",
+                {},
+                "skywatch_mcp.tools.clickhouse.get_client",
+                "query_trusted",
+            ),
+        ],
+    )
+    async def test_success_wraps_json_string(self, tool_name, arguments, mock_path, setup) -> None:
+        from mcp import Client
+
+        from skywatch_mcp.server import mcp
+
+        def make_result(setup_attr: str):
+            from skywatch_mcp.lib.clickhouse_client import QueryResult
+
+            if setup_attr == "query":
+                return QueryResult(
+                    columns=[{"name": "v", "type": "UInt8"}],
+                    rows=[{"v": 1}],
+                    query_id="q-w",
+                    elapsed_ms=1,
+                )
+            return QueryResult(
+                columns=[{"name": "connected", "type": "UInt8"}],
+                rows=[{"connected": 1, "server_version": "test"}],
+                query_id="q-w",
+                elapsed_ms=1,
+            )
+
+        with patch(mock_path) as mock_get_client:
+            mock_client = MagicMock()
+            setattr(mock_client, setup, AsyncMock(return_value=make_result(setup)))
+            mock_get_client.return_value = mock_client
+
+            async with Client(mcp, raise_exceptions=True) as client:
+                result = await client.call_tool(tool_name, arguments)
+
+        assert not result.is_error
+        assert result.content[0].type == "text"
+        text = result.content[0].text
+        parsed = json.loads(text)
+        assert isinstance(parsed, dict)
+        assert result.structured_content == {"result": text}
+
+    @pytest.mark.asyncio
+    async def test_schema_wraps_json_string(self) -> None:
+        from mcp import Client
+
+        from skywatch_mcp.lib.clickhouse_client import QueryResult
+        from skywatch_mcp.server import mcp
+
+        schema_result = QueryResult(
+            columns=[{"name": "name", "type": "String"}],
+            rows=[{"name": "AtUri", "type": "String"}],
+            query_id="q-s",
+            elapsed_ms=1,
+            coverage={"tables_expected": 12, "tables_matched": 12, "tables_missing": []},
+        )
+        with patch("skywatch_mcp.tools.clickhouse.get_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_client.get_schema = AsyncMock(return_value=schema_result)
+            mock_get_client.return_value = mock_client
+
+            async with Client(mcp, raise_exceptions=True) as client:
+                result = await client.call_tool("clickhouse_schema", {})
+
+        assert not result.is_error
+        text = result.content[0].text
+        assert json.loads(text)["rows"]
+        assert result.structured_content == {"result": text}
 
 
 class TestInputValidation:
